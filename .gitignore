@@ -1,5 +1,7 @@
-# secrets
-*.env
+# secrets — only .env.example is committed
+.env
+.env.*
+!.env.example
 
 # IDE files
 .vscode/*
@@ -8,3 +10,15 @@
 
 # macOS
 .DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+back-end/.venv/
+
+# Node
+front-end/node_modules/
+front-end/dist/
+
+# uv — lock file IS committed (reproducible builds)

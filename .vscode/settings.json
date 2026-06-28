@@ -1,6 +1,4 @@
 {
-  "java.configuration.updateBuildConfiguration": "interactive",
-
   "editor.defaultFormatter": "esbenp.prettier-vscode",
 
   "editor.formatOnSave": true,
@@ -20,6 +18,5 @@
   "emmet.includeLanguages": {
     "javascript": "javascriptreact",
     "typescript": "typescriptreact"
-  },
-  "cSpell.words": ["Timesheet", "Timesheets"]
+  }
 }

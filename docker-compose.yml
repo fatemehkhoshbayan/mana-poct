@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: poct
+      POSTGRES_PASSWORD: poct
+      POSTGRES_DB: poct
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poct -d poct"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./back-end
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://poct:poct@db:5432/poct
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./back-end:/app
+    develop:
+      watch:
+        - action: sync
+          path: ./back-end
+          target: /app
+
+  frontend:
+    build:
+      context: ./front-end
+      dockerfile: Dockerfile
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./front-end/src:/app/src
+    develop:
+      watch:
+        - action: sync
+          path: ./front-end/src
+          target: /app/src
+
+volumes:
+  postgres_data:
