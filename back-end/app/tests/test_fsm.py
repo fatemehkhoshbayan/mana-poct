@@ -17,7 +17,10 @@ from app.schemas.domain import (
 def test_storage_not_known_from_current_temp_only():
     """'4 °C' misread as max_excursion must not complete storage."""
     extraction = ExtractionState(
-        consumable=ConsumableInput(lot_expiry_date=date(2026, 12, 31)),
+        consumable=ConsumableInput(
+            lot_number="LOT-001",           # required for consumable_known=True
+            lot_expiry_date=date(2026, 12, 31),
+        ),
         consumable_known=True,
         storage=StorageInput(
             storage_type="refrigerated",
