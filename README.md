@@ -69,34 +69,34 @@ Interactive Swagger UI at **`http://localhost:8000/docs`** — all endpoints doc
 
 ### SSE event types (`POST /api/sessions/{id}/messages`)
 
-| `event:` | `data:` | Meaning |
-|----------|---------|---------|
-| `token` | raw text chunk | Append to the streaming bubble |
-| `state` | `ExtractionState` + `{current_state, current_objective}` | Drives ProgressPanel |
-| `decision` | `Decision` | Final resolved action — render DecisionCard |
-| `error` | `{message}` | Recoverable error |
-| `done` | `[DONE]` | End of turn |
+| `event:`   | `data:`                                                  | Meaning                                     |
+| ---------- | -------------------------------------------------------- | ------------------------------------------- |
+| `token`    | raw text chunk                                           | Append to the streaming bubble              |
+| `state`    | `ExtractionState` + `{current_state, current_objective}` | Drives ProgressPanel                        |
+| `decision` | `Decision`                                               | Final resolved action — render DecisionCard |
+| `error`    | `{message}`                                              | Recoverable error                           |
+| `done`     | `[DONE]`                                                 | End of turn                                 |
 
 ## The QC Decision Matrix
 
-| Scenario | Condition | Color | System Action |
-|----------|-----------|-------|---------------|
-| A — Hard Block | Consumable FAIL | 🔴 RED | Lockdown Device |
-| B — Environmental Breach | Storage FAIL | 🟡 YELLOW | Fail QC Session |
-| C — Suspected Hardware Drift | Historical FAIL | 🔵 BLUE | Trigger Secondary Bio-Ref Run |
-| D — High-Priority Sprint | EQA = WARN | 🟢 GREEN | Pass QC (High Priority) |
-| E — Standard Clearance | All PASS | 🟢 GREEN | Pass QC |
+| Scenario                     | Condition       | Color     | System Action                 |
+| ---------------------------- | --------------- | --------- | ----------------------------- |
+| A — Hard Block               | Consumable FAIL | 🔴 RED    | Lockdown Device               |
+| B — Environmental Breach     | Storage FAIL    | 🟡 YELLOW | Fail QC Session               |
+| C — Suspected Hardware Drift | Historical FAIL | 🔵 BLUE   | Trigger Secondary Bio-Ref Run |
+| D — High-Priority Sprint     | EQA = WARN      | 🟢 GREEN  | Pass QC (High Priority)       |
+| E — Standard Clearance       | All PASS        | 🟢 GREEN  | Pass QC                       |
 
 ## Delivery slices
 
-| Slice | Status | Goal |
-|-------|--------|------|
-| 0 — Skeleton & contracts | ✅ Done | Docker up, health green, hello-stream works, contracts frozen |
-| 1 — Day-1 end-to-end POC | 🔲 Next | Real FSM + LLM extraction + rules engine + DecisionCard |
-| 2 — Fallbacks + mock DB | 🔲 | "I don't know" handling, serial/lot lookups |
-| 3 — Robust dialogue | 🔲 | Out-of-order, corrections, vendor-swap parity |
-| 4 — Observability | 🔲 | LangFuse tracing |
-| 5 — Polish + tests + events | 🔲 | Outbox, full test suite, README complete |
+| Slice                       | Status  | Goal                                                          |
+| --------------------------- | ------- | ------------------------------------------------------------- |
+| 0 — Skeleton & contracts    | ✅ Done | Docker up, health green, hello-stream works, contracts frozen |
+| 1 — end-to-end POC          | 🔲 Next | Real FSM + LLM extraction + rules engine + DecisionCard       |
+| 2 — Fallbacks + mock DB     | 🔲      | "I don't know" handling, serial/lot lookups                   |
+| 3 — Robust dialogue         | 🔲      | Out-of-order, corrections, vendor-swap parity                 |
+| 4 — Observability           | 🔲      | LangFuse tracing                                              |
+| 5 — Polish + tests + events | 🔲      | Outbox, full test suite, README complete                      |
 
 ## Development commands
 

@@ -1,7 +1,10 @@
 .PHONY: up down logs test seed fmt migrate revision shell-backend
 
-up:
+build:
 	docker compose up --build
+	
+up:
+	docker compose up
 
 down:
 	docker compose down
