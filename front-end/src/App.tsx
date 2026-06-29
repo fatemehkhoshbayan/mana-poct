@@ -1,9 +1,9 @@
-import { ChatBox, Layout } from '@/features';
+import { ChatPanel, Layout } from '@/features';
 
 function App() {
   return (
     <Layout>
-      <ChatBox />
+      <ChatPanel />
     </Layout>
   );
 }

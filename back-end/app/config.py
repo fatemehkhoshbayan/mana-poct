@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    LLM_MODEL: str = "anthropic/claude-3.7-sonnet"
+    LLM_MODEL: str = "google/gemini-3.1-flash-lite"
     OPENROUTER_HTTP_REFERER: str = ""
     OPENROUTER_APP_TITLE: str = "MANA POCT QC Assistant"
 
@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     LANGFUSE_HOST: str = "https://cloud.langfuse.com"
 
     DEFAULT_TENANT_ID: str = "demo"
+
+    LOG_LEVEL: str = "INFO"
 
     @property
     def has_llm_key(self) -> bool:

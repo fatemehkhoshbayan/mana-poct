@@ -77,6 +77,7 @@ export interface Decision {
 export interface StateEvent extends ExtractionState {
   current_state: FsmState;
   current_objective: string;
+  variable_statuses?: Record<string, string>;
 }
 
 export interface SseError {

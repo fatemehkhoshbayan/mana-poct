@@ -17,7 +17,7 @@ export function parseFrame(frame: string, handlers: StreamHandlers): void {
     if (line.startsWith('event:')) {
       eventType = line.slice(6).trim();
     } else if (line.startsWith('data:')) {
-      dataLines.push(line.slice(5).trim());
+      dataLines.push(line.slice(5).replace(/^ /, ''));
     }
   }
 

@@ -7,6 +7,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health, hello, sessions
+from app.config import settings
+
+logging.basicConfig(
+    level=settings.LOG_LEVEL,
+    format="%(asctime)s %(levelname)-8s %(name)s  %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 logger = logging.getLogger(__name__)
 
