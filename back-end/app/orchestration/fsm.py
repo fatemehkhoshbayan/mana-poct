@@ -10,27 +10,30 @@ from app.schemas.domain import ExtractionState, FsmState, VarStatus
 
 def mark_known(extraction: ExtractionState, today: date | None = None) -> ExtractionState:
     """
-    Re-derive all four variables from current raw inputs and flip *_known flags
-    whenever enough data exists to make a determination.
+    Re-derive all four *_known flags from scratch based on current raw inputs.
+
+    Each flag is computed fresh — flags are never carried over from the incoming
+    ExtractionState. This makes the function idempotent and supports corrections:
+    if an operator corrects a value that previously satisfied the known-condition,
+    the flag resets to False until the corrected data again satisfies it.
+
     Returns a new ExtractionState (avoids mutation).
     """
     if today is None:
         today = date.today()
 
-    updated = extraction.model_copy(deep=True)
-
     # Consumable: need lot_number AND expiry date — lot_number is the audit identifier.
-    if (
+    consumable_known = (
         extraction.consumable.lot_number is not None
         and extraction.consumable.lot_expiry_date is not None
-    ):
-        updated.consumable_known = True
+    )
 
     # Storage: freeze-indicator answer is required unless excursion data alone
     # determines FAIL (refrigerated breach or room-temp breach).
     s = extraction.storage
+    storage_known = False
     if s.freeze_indicator_tripped is not None:
-        updated.storage_known = True
+        storage_known = True
     elif (
         s.storage_type == "refrigerated"
         and s.max_excursion_temp_c is not None
@@ -38,30 +41,36 @@ def mark_known(extraction: ExtractionState, today: date | None = None) -> Extrac
         and s.excursion_duration_hours is not None
         and s.excursion_duration_hours > 2
     ):
-        updated.storage_known = True
+        storage_known = True
     elif (
         s.storage_type == "room_temperature"
         and s.max_excursion_temp_c is not None
         and s.max_excursion_temp_c > 30
     ):
-        updated.storage_known = True
+        storage_known = True
 
     # Historical: need the failure count
-    if extraction.historical.consecutive_qc_failures_30d is not None:
-        updated.historical_known = True
+    historical_known = extraction.historical.consecutive_qc_failures_30d is not None
 
     # EQA: known when has_active_cycle is set (False = no active cycle → STANDARD)
+    eqa_known = False
     if extraction.eqa.has_active_cycle is not None:
-        # If active, also need deadline + status
         if not extraction.eqa.has_active_cycle:
-            updated.eqa_known = True
+            eqa_known = True
         elif (
             extraction.eqa.eqa_deadline_date is not None
             and extraction.eqa.eqa_submission_status is not None
         ):
-            updated.eqa_known = True
+            eqa_known = True
 
-    return updated
+    return extraction.model_copy(
+        update={
+            "consumable_known": consumable_known,
+            "storage_known": storage_known,
+            "historical_known": historical_known,
+            "eqa_known": eqa_known,
+        }
+    )
 
 
 def next_objective(extraction: ExtractionState) -> FsmState:

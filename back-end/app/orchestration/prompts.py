@@ -15,7 +15,10 @@ _OBJECTIVE_DESCRIPTIONS: dict[FsmState, str] = {
         "how long ago the vial was first opened (open-vial age in days, or the date it was opened).\n"
         "PASS = expiry date is today or later AND open-vial age ≤ 30 days. "
         "FAIL = lot expired OR open-vial age > 30 days.\n"
-        "Record values using the record_consumable tool once confirmed."
+        "Record values using the record_consumable tool once confirmed.\n"
+        "If the operator also volunteers storage, device history, or EQA information in the "
+        "same message, record those variables immediately with the appropriate tool(s) before "
+        "asking the next question."
     ),
     FsmState.ASK_STORAGE: (
         "Your current objective: determine the STORAGE CONDITION.\n"
@@ -28,7 +31,9 @@ _OBJECTIVE_DESCRIPTIONS: dict[FsmState, str] = {
         "Do NOT set freeze_indicator_tripped until the operator explicitly answers.\n"
         "A current fridge reading is NOT an excursion — do not set max_excursion_temp_c "
         "for normal operating temperatures.\n"
-        "If there was a temperature excursion, record peak temp and duration too."
+        "If there was a temperature excursion, record peak temp and duration too.\n"
+        "If the operator also volunteers device history or EQA information, record those "
+        "variables immediately with the appropriate tool(s) before asking the next question."
     ),
     FsmState.ASK_HISTORICAL: (
         "Your current objective: determine the HISTORICAL ERROR FLAG.\n"
@@ -40,7 +45,9 @@ _OBJECTIVE_DESCRIPTIONS: dict[FsmState, str] = {
         "NEVER call lookup_device with 'unknown', 'I don't know', or similar phrases.\n"
         "If the operator does not have the serial number, do NOT ask for it again. "
         "Instead ask: 'Have you seen any failed QC results on this device in the last "
-        "30 days — none, one, or two or more?' and record the answer with record_historical."
+        "30 days — none, one, or two or more?' and record the answer with record_historical.\n"
+        "If the operator also volunteers EQA information, record it immediately with "
+        "record_eqa before asking the next question."
     ),
     FsmState.ASK_EQA: (
         "Your current objective: determine the EQA STATUS.\n"
@@ -83,6 +90,13 @@ then let the system compute the final QC decision. You MUST follow these rules:
 6. When recording dates, always use YYYY-MM-DD format. If the operator gives a date without \
    a year (e.g. "July 5th"), assume the current year ({year}) unless context makes another \
    year clearly more appropriate (e.g. an expiry that has already passed this year).
+7. OUT-OF-ORDER DATA: If the operator volunteers information about a variable that is not \
+   the current objective (e.g. mentions storage conditions while you are still asking about \
+   the consumable), record it immediately using the appropriate record_* tool before \
+   continuing with the current objective. Never discard volunteered information.
+8. CORRECTIONS: If the operator corrects previously provided information (e.g. "actually \
+   the expiry date was 2026-06-01, not 2026-12-31"), call the appropriate record_* tool \
+   again with the corrected value. Acknowledge the correction and confirm the update.
 """
 
 
