@@ -1,0 +1,93 @@
+[
+  {
+    "id": "A",
+    "label": "Hard Block",
+    "description": "Expired reagent lot — consumable FAIL triggers immediate device lockdown.",
+    "expected_scenario": "A",
+    "expected_variables": {
+      "consumable_status": "FAIL",
+      "storage_condition": "PASS",
+      "historical_error_flag": "PASS",
+      "eqa_status": "STANDARD"
+    },
+    "messages": [
+      "Lot expiry date is 2026-01-15, opened 4 days ago",
+      "Stored refrigerated at 4C, no temperature excursions, freeze indicator has not tripped",
+      "Zero consecutive QC failures",
+      "No active EQA cycle"
+    ]
+  },
+  {
+    "id": "B",
+    "label": "Environmental Breach",
+    "description": "Temperature excursion (9°C for 3h) — storage FAIL invalidates QC session.",
+    "expected_scenario": "B",
+    "expected_variables": {
+      "consumable_status": "PASS",
+      "storage_condition": "FAIL",
+      "historical_error_flag": "PASS",
+      "eqa_status": "STANDARD"
+    },
+    "messages": [
+      "Lot expiry 2026-12-31, opened 5 days ago",
+      "Refrigerated storage, had a temperature excursion at 9 degrees C for 3 hours, freeze indicator has not tripped",
+      "Zero consecutive QC failures",
+      "No active EQA cycle"
+    ]
+  },
+  {
+    "id": "C",
+    "label": "Hardware Drift",
+    "description": "2 consecutive QC failures — historical FAIL triggers secondary reference run.",
+    "expected_scenario": "C",
+    "expected_variables": {
+      "consumable_status": "PASS",
+      "storage_condition": "PASS",
+      "historical_error_flag": "FAIL",
+      "eqa_status": "STANDARD"
+    },
+    "messages": [
+      "Lot expiry 2026-12-31, opened 5 days ago",
+      "Refrigerated at 4C, no excursions, freeze indicator not tripped",
+      "2 consecutive QC failures in the last 30 days",
+      "No active EQA cycle"
+    ]
+  },
+  {
+    "id": "D",
+    "label": "High-Priority Sprint",
+    "description": "Active EQA cycle with deadline within 7 days — eqa_status WARN, device cleared.",
+    "expected_scenario": "D",
+    "expected_variables": {
+      "consumable_status": "PASS",
+      "storage_condition": "PASS",
+      "historical_error_flag": "PASS",
+      "eqa_status": "WARN"
+    },
+    "messages": [
+      "Lot expiry 2026-12-31, opened 5 days ago",
+      "Refrigerated at 4C, no excursions, freeze indicator not tripped",
+      "Zero consecutive QC failures",
+      "Yes there is an active EQA cycle, deadline is 2026-07-02, submission status is PENDING"
+    ],
+    "notes": "eqa_deadline_date must be within 7 days of today for WARN to trigger. Adjust the date when re-running."
+  },
+  {
+    "id": "E",
+    "label": "Standard Clearance",
+    "description": "All variables pass — device cleared for patient testing.",
+    "expected_scenario": "E",
+    "expected_variables": {
+      "consumable_status": "PASS",
+      "storage_condition": "PASS",
+      "historical_error_flag": "PASS",
+      "eqa_status": "STANDARD"
+    },
+    "messages": [
+      "Lot expiry 2026-12-31, opened 5 days ago",
+      "Refrigerated at 4C, no excursions, freeze indicator not tripped",
+      "Zero consecutive QC failures, never failed before",
+      "No active EQA cycle"
+    ]
+  }
+]
