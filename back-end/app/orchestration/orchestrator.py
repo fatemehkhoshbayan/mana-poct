@@ -9,7 +9,7 @@ from typing import Any, AsyncIterator
 
 from app.domain.rules_engine import resolve
 from app.llm.base import LLMProvider
-from app.orchestration.fsm import all_known, mark_known, next_objective
+from app.orchestration.fsm import all_known, can_resolve_early, mark_known, next_objective
 from app.orchestration.prompts import build_system_prompt
 from app.orchestration.tools import ALL_TOOLS, execute_tool
 from app.schemas.domain import Decision, ExtractionState, FsmState
@@ -62,7 +62,7 @@ class Orchestrator:
         Process one user turn. Yields OrchestratorEvents:
           - TokenEvent     per LLM text chunk
           - StateEvent     after each tool execution
-          - DecisionEvent  when all 4 variables are resolved
+          - DecisionEvent  when all variables are resolved (or outcome is certain early)
           - ErrorEvent     on recoverable failure
         """
         if today is None:
@@ -163,13 +163,17 @@ class Orchestrator:
                 current_objective=objective.value,
             )
 
-            # If all variables known, resolve
-            if all_known(extraction):
+            # Short-circuit if outcome is already certain (precedence chain §2.2)
+            if all_known(extraction) or can_resolve_early(extraction, today):
                 break
 
-        # Final check: if all variables are now known, compute decision
-        if all_known(extraction):
-            logger.info("  all known — invoking rules engine")
+        # Resolve if all variables are known or the outcome is already certain
+        if all_known(extraction) or can_resolve_early(extraction, today):
+            logger.info(
+                "  resolving — all_known=%s  early=%s",
+                all_known(extraction),
+                can_resolve_early(extraction, today),
+            )
             try:
                 decision = resolve(
                     extraction,

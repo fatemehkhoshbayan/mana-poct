@@ -11,6 +11,8 @@ interface VariableRow {
   statusKey: string;
   known: boolean;
   activeState: FsmState;
+  /** Small supplementary label shown under the variable name when data came from DB lookup */
+  dbHint?: string | null;
 }
 
 function Chip({ known, value }: { known: boolean; value: string | undefined }) {
@@ -33,12 +35,16 @@ function Chip({ known, value }: { known: boolean; value: string | undefined }) {
 }
 
 export function ProgressPanel({ extraction, variableStatuses, currentFsm }: ProgressPanelProps) {
+  const deviceSerial = extraction?.historical?.device_serial;
+  const lotNumber = extraction?.consumable?.lot_number;
+
   const rows: VariableRow[] = [
     {
       label: 'Consumable',
       statusKey: 'consumable_status',
       known: extraction?.consumable_known ?? false,
       activeState: 'ASK_CONSUMABLE',
+      dbHint: lotNumber ? `Lot: ${lotNumber}` : null,
     },
     {
       label: 'Storage',
@@ -51,6 +57,7 @@ export function ProgressPanel({ extraction, variableStatuses, currentFsm }: Prog
       statusKey: 'historical_error_flag',
       known: extraction?.historical_known ?? false,
       activeState: 'ASK_HISTORICAL',
+      dbHint: deviceSerial ? `DB: ${deviceSerial}` : null,
     },
     {
       label: 'EQA',
@@ -75,9 +82,14 @@ export function ProgressPanel({ extraction, variableStatuses, currentFsm }: Prog
                 isActive ? 'bg-slate-800 ring-1 ring-emerald-600/40' : ''
               }`}
             >
-              <span className={`text-sm ${isActive ? 'text-slate-100' : 'text-slate-400'}`}>
-                {row.label}
-                {isActive && <span className="ml-1.5 text-emerald-400">←</span>}
+              <span className="flex flex-col">
+                <span className={`text-sm ${isActive ? 'text-slate-100' : 'text-slate-400'}`}>
+                  {row.label}
+                  {isActive && <span className="ml-1.5 text-emerald-400">←</span>}
+                </span>
+                {row.dbHint && (
+                  <span className="mt-0.5 text-[10px] text-sky-400/80">{row.dbHint}</span>
+                )}
               </span>
               <Chip known={row.known} value={variableStatuses[row.statusKey]} />
             </li>
