@@ -111,7 +111,7 @@ uv run uvicorn app.main:app --reload --port 8000
 |--------|------|-------------|
 | `GET` | `/api/health` | Liveness check — `{"status": "ok"}` |
 | `POST` | `/api/sessions` | Create a new QC session |
-| `POST` | `/api/sessions/{id}/messages` | Stream one dialogue turn (SSE) |
+| `POST` | `/api/sessions/{id}/messages` | Stream one dialogue turn (SSE); **409** if session already resolved |
 | `GET` | `/api/sessions/{id}` | Full session state snapshot |
 
 Full interactive docs at **`http://localhost:8000/docs`**.
@@ -125,6 +125,13 @@ Full interactive docs at **`http://localhost:8000/docs`**.
 | `decision` | `Decision` | Final resolved action — render DecisionCard |
 | `error` | `{"message": "..."}` | Recoverable error |
 | `done` | `[DONE]` | End of turn |
+
+### Session lifecycle
+
+- A session starts as `status=active` and progresses through the FSM until a `Decision` is emitted.
+- On decision, `status` is set to `resolved` and `fsm_state` to `RESOLVED`.
+- Further `POST /api/sessions/{id}/messages` calls return **HTTP 409** with detail *"Session is already resolved. Start a new session for the next device."*
+- Each device / QC check should use a new session via `POST /api/sessions`.
 
 ## Running tests
 

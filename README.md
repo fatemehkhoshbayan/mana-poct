@@ -46,7 +46,7 @@ mana-poct/
         ├── hooks/            useChatStream.ts · helper.ts
         ├── state/            chatReducer.ts  (slice 1)
         ├── features/         ChatPanel · ProgressPanel · DecisionCard · Layout
-        └── ui/               MessageBubble · Composer · Button
+        └── ui/               MessageBubble · Composer · TypingIndicator · Button
 ```
 
 ## Quick start
@@ -82,6 +82,18 @@ Interactive Swagger UI at **`http://localhost:8000/docs`** — all endpoints doc
 | `error`    | `{message}`                                              | Recoverable error                           |
 | `done`     | `[DONE]`                                                 | End of turn                                 |
 
+Sending a message to a **resolved** session returns **HTTP 409** — start a new session via `POST /api/sessions` for the next device.
+
+## Chat UI behaviour
+
+| State | What the user sees |
+| ----- | ------------------ |
+| Waiting for first token | Animated three-dot typing indicator (assistant bubble placeholder) |
+| Streaming | Assistant message bubble with a blinking cursor |
+| Turn complete | Input refocuses automatically so the user can type the next answer |
+| Decision reached | `DecisionCard` shown; composer locked with placeholder *"Session resolved — start a new check below"* |
+| Next device | Click **New QC Check** → fresh session, cleared chat and progress panel (no page reload) |
+
 ## The QC Decision Matrix
 
 | Scenario                     | Condition       | Color     | System Action                 |
@@ -108,19 +120,21 @@ Start a **new session** for each path. Turn 1 must include a **lot number** — 
 
 **"I don't know" fallbacks** (Slice 2): the assistant can call `lookup_lot` / `lookup_device` against seeded mock data. Fixture IDs live in `back-end/app/mock_db/fixtures.py` (e.g. `LOT-EXPIRED-1`, `SN-FAIL-HIST-1`).
 
+After a decision, use **New QC Check** in the UI (or `POST /api/sessions`) to start a fresh session for another device. Messages to a resolved session are rejected with HTTP 409.
+
 ## Evals
 
-The `evals/` directory contains a reproducible test harness for all five QC decision scenarios.
+The `evals/` directory contains a reproducible test harness for all five QC decision scenarios (happy paths) plus documented edge-case coverage.
 
 ```bash
-# Run all 5 scenarios against the local stack
+# Run all 5 happy-path scenarios against the local stack
 python evals/run_eval.py
 
 # Run a subset
 python evals/run_eval.py --scenarios A C E
 ```
 
-See [`evals/README.md`](./evals/README.md) for full usage and historical results.
+See [`evals/README.md`](./evals/README.md) for full usage, boundary thresholds, edge-case inventory, and historical results (including the 21/21 edge-case live run).
 
 ## Delivery slices
 
@@ -129,7 +143,8 @@ See [`evals/README.md`](./evals/README.md) for full usage and historical results
 | 0 — Skeleton & contracts    | ✅ Done  | Docker up, health green, hello-stream works, contracts frozen |
 | 1 — end-to-end POC          | ✅ Done  | Real FSM + LLM extraction + rules engine + DecisionCard       |
 | 2 — Fallbacks + mock DB     | ✅ Done  | Mock DB seed, lookup_lot/device, early resolution, FSM tests |
-| 3 — Robust dialogue         | 🔲       | Out-of-order, corrections, vendor-swap parity                 |
+| 3 — Robust dialogue         | ✅ Done  | Out-of-order, corrections, mark_known re-derive, 16 new tests |
+| 3b — UI polish              | ✅ Done  | Typing indicator, auto-focus, new session after resolution      |
 | 4 — Observability           | 🔲       | LangFuse tracing                                              |
 | 5 — Polish + tests + events | 🔲       | Outbox, full test suite, README complete                      |
 
