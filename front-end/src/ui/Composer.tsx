@@ -1,13 +1,25 @@
-import { useRef, useState } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
 interface ComposerProps {
   onSend: (text: string) => void;
   disabled: boolean;
+  resolved?: boolean;
 }
 
-export function Composer({ onSend, disabled }: ComposerProps) {
+export interface ComposerHandle {
+  focus: () => void;
+}
+
+export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
+  { onSend, disabled, resolved = false },
+  ref,
+) {
   const [text, setText] = useState('');
-  const ref = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => textareaRef.current?.focus(),
+  }));
 
   const submit = () => {
     const trimmed = text.trim();
@@ -26,13 +38,19 @@ export function Composer({ onSend, disabled }: ComposerProps) {
   return (
     <div className="flex items-end gap-2 border-t border-slate-800 p-3">
       <textarea
-        ref={ref}
+        ref={textareaRef}
         value={text}
         onChange={e => setText(e.target.value)}
         onKeyDown={onKeyDown}
         disabled={disabled}
         rows={2}
-        placeholder={disabled ? 'Waiting for assistant…' : 'Type your answer…'}
+        placeholder={
+          resolved
+            ? 'Session resolved — start a new check below'
+            : disabled
+              ? 'Waiting for assistant…'
+              : 'Type your answer…'
+        }
         className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none disabled:opacity-50"
       />
       <button
@@ -44,4 +62,4 @@ export function Composer({ onSend, disabled }: ComposerProps) {
       </button>
     </div>
   );
-}
+});

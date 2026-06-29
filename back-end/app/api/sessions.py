@@ -122,6 +122,12 @@ async def send_message(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    if session.status == "resolved":
+        raise HTTPException(
+            status_code=409,
+            detail="Session is already resolved. Start a new session for the next device.",
+        )
+
     # Load message history
     result = await db.execute(
         select(Message).where(Message.session_id == session_id).order_by(Message.created_at)
