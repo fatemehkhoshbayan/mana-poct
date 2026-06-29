@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from app.schemas.domain import FsmState
 
 _OBJECTIVE_DESCRIPTIONS: dict[FsmState, str] = {
@@ -45,9 +47,11 @@ _OBJECTIVE_DESCRIPTIONS: dict[FsmState, str] = {
     ),
 }
 
-_SYSTEM_PREAMBLE = """\
+_SYSTEM_PREAMBLE_TEMPLATE = """\
 You are the MANA POCT QC Assistant — an intelligent co-pilot helping site operators \
 (nurses, pharmacists) work through ambiguous Quality Control results on bedside testing devices.
+
+Today's date is {today}.
 
 Your role is to gather four specific pieces of information through natural conversation, \
 then let the system compute the final QC decision. You MUST follow these rules:
@@ -62,12 +66,18 @@ then let the system compute the final QC decision. You MUST follow these rules:
 4. Be concise and professional. Acknowledge what the operator tells you, then ask the next question.
 5. Use the record_* tools to save values as soon as you have them — \
    this drives the progress tracker the operator can see.
+6. When recording dates, always use YYYY-MM-DD format. If the operator gives a date without \
+   a year (e.g. "July 5th"), assume the current year ({year}) unless context makes another \
+   year clearly more appropriate (e.g. an expiry that has already passed this year).
 """
 
 
-def build_system_prompt(objective: FsmState) -> str:
+def build_system_prompt(objective: FsmState, today: date | None = None) -> str:
+    if today is None:
+        today = date.today()
+    preamble = _SYSTEM_PREAMBLE_TEMPLATE.format(today=today.isoformat(), year=today.year)
     objective_text = _OBJECTIVE_DESCRIPTIONS.get(objective, "")
-    return f"{_SYSTEM_PREAMBLE}\n---\n{objective_text}"
+    return f"{preamble}\n---\n{objective_text}"
 
 
 GREETING = (

@@ -34,7 +34,10 @@ RECORD_CONSUMABLE = ToolSpec(
             "lot_expiry_date": {
                 "type": "string",
                 "format": "date",
-                "description": "Lot expiry date (YYYY-MM-DD).",
+                "description": (
+                    "Lot expiry date (YYYY-MM-DD). "
+                    "If the operator omits the year, use the current year."
+                ),
             },
             "open_vial_date": {
                 "type": "string",

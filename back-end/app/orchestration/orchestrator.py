@@ -86,7 +86,7 @@ class Orchestrator:
 
         for _iteration in range(MAX_TOOL_ITERATIONS):
             objective = next_objective(extraction)
-            system_prompt = build_system_prompt(objective)
+            system_prompt = build_system_prompt(objective, today=today)
 
             logger.info(
                 "  iteration=%d  objective=%s  history_len=%d",
