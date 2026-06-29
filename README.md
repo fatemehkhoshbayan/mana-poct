@@ -39,7 +39,7 @@ mana-poct/
 │       ├── observability/    tracer · langfuse_tracer · noop_tracer  (slice 4)
 │       ├── events/           publisher · log_publisher · outbox  (slice 5)
 │       ├── mock_db/          fixtures · seed · repository  (slice 2)
-│       └── tests/            pytest suite — 22 rules-engine tests (all green)
+│       └── tests/            pytest suite — rules engine · FSM · mock DB (49 tests)
 └── front-end/                React 19 + TypeScript — see front-end/README.md
     └── src/
         ├── services/         types.ts · client.ts  (mirrors backend contracts)
@@ -92,6 +92,22 @@ Interactive Swagger UI at **`http://localhost:8000/docs`** — all endpoints doc
 | D — High-Priority Sprint     | EQA = WARN      | 🟢 GREEN  | Pass QC (High Priority)       |
 | E — Standard Clearance       | All PASS        | 🟢 GREEN  | Pass QC                       |
 
+Early resolution: once a FAIL makes the outcome certain (e.g. expired lot → A, storage breach → B), the session resolves without collecting remaining variables.
+
+## Manual testing (all five paths)
+
+Start a **new session** for each path. Turn 1 must include a **lot number** — consumable is not marked known without it.
+
+| Path | Turn 1 (consumable) | Key trigger | Resolves |
+| ---- | --------------------- | ----------- | -------- |
+| **A** | `Lot number LOT-EXPIRED-1, expiry date 2026-01-15, vial opened 4 days ago` | Expired lot | Turn 1 |
+| **B** | `Lot number LOT-FRESH-1, expiry 2026-12-31, vial opened 5 days ago` | Turn 2: `9°C for 3 hours` excursion | Turn 2 |
+| **C** | `Lot number LOT-FRESH-1, expiry 2026-12-31, vial opened 5 days ago` | Turn 3: `2 consecutive QC failures` | Turn 3 |
+| **D** | `Lot number LOT-EQA-D, expiry 2026-12-31, vial opened 5 days ago` | Turn 4: EQA deadline ≤ 7 days, PENDING | Turn 4 |
+| **E** | `Lot number LOT-STANDARD, expiry 2026-12-31, vial opened 5 days ago` | All variables pass | Turn 4 |
+
+**"I don't know" fallbacks** (Slice 2): the assistant can call `lookup_lot` / `lookup_device` against seeded mock data. Fixture IDs live in `back-end/app/mock_db/fixtures.py` (e.g. `LOT-EXPIRED-1`, `SN-FAIL-HIST-1`).
+
 ## Evals
 
 The `evals/` directory contains a reproducible test harness for all five QC decision scenarios.
@@ -112,7 +128,7 @@ See [`evals/README.md`](./evals/README.md) for full usage and historical results
 | --------------------------- | -------- | ------------------------------------------------------------- |
 | 0 — Skeleton & contracts    | ✅ Done  | Docker up, health green, hello-stream works, contracts frozen |
 | 1 — end-to-end POC          | ✅ Done  | Real FSM + LLM extraction + rules engine + DecisionCard       |
-| 2 — Fallbacks + mock DB     | 🔲 Next  | "I don't know" handling, serial/lot lookups                   |
+| 2 — Fallbacks + mock DB     | ✅ Done  | Mock DB seed, lookup_lot/device, early resolution, FSM tests |
 | 3 — Robust dialogue         | 🔲       | Out-of-order, corrections, vendor-swap parity                 |
 | 4 — Observability           | 🔲       | LangFuse tracing                                              |
 | 5 — Polish + tests + events | 🔲       | Outbox, full test suite, README complete                      |

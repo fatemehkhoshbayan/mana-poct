@@ -45,9 +45,9 @@ back-end/
     │   └── scenarios.py     SCENARIO_TABLE — maps Scenario enum to metadata
     │
     ├── orchestration/       LLM dialogue management
-    │   ├── fsm.py           mark_known · next_objective  (pure FSM transitions)
-    │   ├── orchestrator.py  run_turn() → AsyncGenerator[OrchestratorEvent]
-    │   ├── tools.py         record_* ToolSpec definitions + execute_tool()
+    │   ├── fsm.py           mark_known · next_objective · can_resolve_early  (pure FSM)
+    │   ├── orchestrator.py  handle_turn() → AsyncGenerator[OrchestratorEvent]
+    │   ├── tools.py         record_* + lookup_lot/device ToolSpecs + execute_tool()
     │   └── prompts.py       system prompt preamble + per-objective instructions
     │
     ├── llm/                 Vendor-agnostic LLM adapter
@@ -64,9 +64,14 @@ back-end/
     │
     ├── observability/       LangFuse tracer (slice 4, currently noop)
     ├── events/              Outbox publisher (slice 5, currently stub)
-    ├── mock_db/             Mock lot/device data (slice 2, currently stub)
+    ├── mock_db/             Seeded lot/device fixtures + in-memory repository
+    │   ├── fixtures.py      Static rows covering scenarios A–E
+    │   ├── repository.py    Sync lookup index (used mid-turn by tool executors)
+    │   └── seed.py          Idempotent upsert on app startup
     └── tests/
-        └── test_rules_engine.py   22 truth-table tests for the rules engine
+        ├── test_rules_engine.py   22 truth-table tests for the rules engine
+        ├── test_fsm.py            mark_known boundaries + early-resolution chain
+        └── test_mock_db.py        lookup_lot/device executors + scenario triggers
 ```
 
 ## Environment variables
@@ -128,7 +133,31 @@ cd back-end
 uv run pytest
 ```
 
-All 22 rules-engine tests cover the full truth table (scenarios A–E), boundary conditions, and precedence.
+49 tests total: rules-engine truth table, FSM `mark_known` / `can_resolve_early`, and mock DB lookup executors.
+
+## Mock DB & fallback tools
+
+On startup, `seed_mock_db()` upserts fixture rows into `mock_lots` and `mock_devices`. Tool executors read from an in-memory index for zero-latency lookups mid-turn.
+
+| Tool | When used | Example fixture |
+| ---- | --------- | --------------- |
+| `lookup_lot` | Operator provides lot number but not dates | `LOT-EXPIRED-1` → expired lot (Scenario A) |
+| `lookup_device` | Operator provides device serial | `SN-FAIL-HIST-1` → 2 consecutive failures (Scenario C) |
+
+Placeholder values (`"unknown"`, `"I don't know"`, etc.) are rejected — the assistant must ask a follow-up question instead of calling lookup with a placeholder.
+
+### FSM collection rules
+
+| Variable | Marked known when |
+| -------- | ----------------- |
+| Consumable | `lot_number` **and** `lot_expiry_date` are set |
+| Storage | Freeze-indicator answered, **or** excursion data alone proves FAIL |
+| Historical | `consecutive_qc_failures_30d` is set |
+| EQA | `has_active_cycle` is set (False = STANDARD; True also needs deadline + status) |
+
+`can_resolve_early()` mirrors the §2.2 precedence chain: consumable FAIL → A; storage FAIL → B; historical FAIL → C. The orchestrator resolves as soon as `all_known()` or `can_resolve_early()` is true.
+
+The rules engine only includes **collected** variables in the decision payload (no default PASS/STANDARD for fields not yet gathered).
 
 ## Linting
 
@@ -141,5 +170,6 @@ uv run ruff format .
 
 - **LLM gathers, rules decide.** The LLM's only job is to extract structured facts via tool calls. All QC decisions are made by `rules_engine.resolve()` — pure Python, fully testable, no LLM involved.
 - **Variable statuses are computed server-side.** `sessions.py` calls `derive_*` functions before emitting each `state` event so the frontend never re-derives business logic.
-- **`freeze_indicator_tripped` is mandatory.** The `record_storage` tool schema and the `ASK_STORAGE` prompt both enforce this field to prevent the LLM from silently skipping it, which was the root cause of several eval failures (see `evals/results/slice1_model_comparison.md`).
+- **`freeze_indicator_tripped` is mandatory** unless excursion data alone proves storage FAIL. The `record_storage` tool schema and `ASK_STORAGE` prompt enforce this to prevent silent skips (see `evals/results/slice1_model_comparison.md`).
+- **`lot_number` is required for consumable.** Expiry date alone does not mark consumable known — this is the audit identifier and gates early resolution.
 - **`FakeProvider`** allows the full UI to work in offline/CI environments with no API key.

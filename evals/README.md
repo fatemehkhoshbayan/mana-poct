@@ -45,12 +45,14 @@ Each entry defines a complete conversation script for one of the five QC decisio
   "expected_scenario": "E",    // matched against SSE decision event
   "expected_variables": { ... },
   "messages": [                 // 4 scripted user turns
-    "Lot expiry ...",
+    "Lot number LOT-FRESH-1, expiry 2026-12-31, opened 5 days ago",
     "Refrigerated at 4C ...",
     ...
   ]
 }
 ```
+
+> **Important (Slice 2):** Turn 1 must include a **lot number**. The FSM requires `lot_number` + `lot_expiry_date` before marking consumable known. Messages with expiry only will not resolve. Update `scenarios.json` turn-1 messages accordingly before running evals.
 
 ### Variable status values
 
@@ -65,7 +67,9 @@ Each entry defines a complete conversation script for one of the five QC decisio
 
 ## Updating fixtures for future slices
 
+- **Lot number on turn 1:** Every scenario's first message must include a lot number (e.g. `Lot number LOT-EXPIRED-1, expiry date 2026-01-15, …`). See `back-end/app/mock_db/fixtures.py` for seeded IDs.
 - **Date-sensitive scenarios:** Scenario D uses an `eqa_deadline_date` that must be within 7 days of today. Update the date in `scenarios.json` before each run, or parameterise it in the runner.
+- **Early resolution:** Scenarios A–C may resolve in fewer than 4 turns. The runner treats a session as passed once the correct `decision` event arrives, regardless of turn count.
 - **New scenarios:** Add entries to `scenarios.json`. The runner will pick them up automatically.
 - **New variables:** Extend `expected_variables` in each entry to match new fields added to the backend `DecisionEvent`.
 

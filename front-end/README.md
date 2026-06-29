@@ -37,7 +37,7 @@ front-end/
 │   ├── features/             Page-level composed components
 │   │   ├── Layout.tsx        App shell (header + sidebar + main)
 │   │   ├── ChatPanel.tsx     Assembles MessageBubble list + ProgressPanel + Composer
-│   │   ├── ProgressPanel.tsx Four-variable status tracker (driven by backend variable_statuses)
+│   │   ├── ProgressPanel.tsx Four-variable status tracker + lot/serial DB hints
 │   │   ├── DecisionCard.tsx  Final QC decision display (scenario badge + system action)
 │   │   └── ChatBox.tsx       Thin wrapper for standalone chat box use
 │   │
@@ -112,5 +112,6 @@ The reducer handles these actions: `SESSION_CREATED`, `STREAM_TOKEN`, `STREAM_ST
 ## Key design decisions
 
 - **No client-side rule re-derivation.** `ProgressPanel` displays `variableStatuses` exactly as returned by the backend `state` SSE events. The rules engine lives entirely in Python.
+- **DB lookup hints.** When the backend populates `consumable.lot_number` or `historical.device_serial` (via operator input or mock DB lookup), ProgressPanel shows a small supplementary label (`Lot: …` / `DB: …`) under the relevant row.
 - **`useReducer` over external store.** The chat state is self-contained enough that Redux/Zustand would be premature. `chatReducer.ts` keeps all transitions in one auditable place.
 - **Path alias `@/`** maps to `src/` so imports stay clean across the nested folder structure.
