@@ -39,11 +39,13 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Alembic migration failed (non-fatal on first boot): %s", exc)
 
-    # Seed mock DB (idempotent; no-op until Surface B fixtures land)
+    # Seed mock DB (idempotent upsert)
     try:
-        from app.mock_db import seed  # noqa: F401, PLC0415
-    except Exception:
-        pass
+        from app.mock_db.seed import seed_mock_db  # noqa: PLC0415
+
+        await seed_mock_db()
+    except Exception as exc:
+        logger.warning("mock_db seed failed (non-fatal): %s", exc)
 
     yield
 
