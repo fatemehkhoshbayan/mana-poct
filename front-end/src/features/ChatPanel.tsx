@@ -1,7 +1,8 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { useChatStream } from '@/hooks';
 import { createSession } from '@/services';
-import { Composer, MessageBubble } from '@/ui';
+import { Composer, MessageBubble, TypingIndicator } from '@/ui';
+import type { ComposerHandle } from '@/ui';
 import { chatReducer, initialState } from '@/state/chatReducer';
 import { DecisionCard } from './DecisionCard';
 import { ProgressPanel } from './ProgressPanel';
@@ -10,6 +11,16 @@ export function ChatPanel() {
   const [state, dispatch] = useReducer(chatReducer, initialState);
   const { stream } = useChatStream();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<ComposerHandle>(null);
+  const prevStreamingRef = useRef(false);
+
+  // Refocus the input as soon as streaming ends so the user can type immediately.
+  useEffect(() => {
+    if (prevStreamingRef.current && !state.isStreaming) {
+      composerRef.current?.focus();
+    }
+    prevStreamingRef.current = state.isStreaming;
+  }, [state.isStreaming]);
 
   // Create session on mount
   useEffect(() => {
@@ -30,8 +41,22 @@ export function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [state.messages, state.streamingText]);
 
+  const handleNewSession = async () => {
+    try {
+      const res = await createSession();
+      dispatch({
+        type: 'SESSION_CREATED',
+        sessionId: res.session_id,
+        fsm: res.state,
+        greeting: res.greeting,
+      });
+    } catch (err) {
+      dispatch({ type: 'STREAM_ERROR', message: String(err) });
+    }
+  };
+
   const handleSend = async (text: string) => {
-    if (!state.sessionId || state.isStreaming) return;
+    if (!state.sessionId || state.isStreaming || !!state.decision) return;
 
     dispatch({ type: 'USER_MESSAGE', text });
     dispatch({ type: 'STREAM_START' });
@@ -59,7 +84,10 @@ export function ChatPanel() {
             <MessageBubble key={m.id} role={m.role} content={m.content} />
           ))}
 
-          {/* Streaming bubble */}
+          {/* Waiting for first token — show typing indicator */}
+          {state.isStreaming && !state.streamingText && <TypingIndicator />}
+
+          {/* Streaming bubble — shown once tokens start arriving */}
           {state.isStreaming && state.streamingText && (
             <MessageBubble role="assistant" content={state.streamingText} streaming />
           )}
@@ -78,7 +106,23 @@ export function ChatPanel() {
           <div ref={bottomRef} />
         </div>
 
-        <Composer onSend={handleSend} disabled={state.isStreaming || !state.sessionId} />
+        <Composer
+          ref={composerRef}
+          onSend={handleSend}
+          disabled={state.isStreaming || !state.sessionId || !!state.decision}
+          resolved={!!state.decision}
+        />
+
+        {state.decision && (
+          <div className="border-t border-slate-800 px-3 pb-3 pt-2">
+            <button
+              onClick={handleNewSession}
+              className="w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-500 active:scale-[0.98]"
+            >
+              New QC Check
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sidebar */}
