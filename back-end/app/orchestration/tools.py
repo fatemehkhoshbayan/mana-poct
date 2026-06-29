@@ -53,8 +53,10 @@ RECORD_STORAGE = ToolSpec(
     name="record_storage",
     description=(
         "Record the storage conditions for the reagent. "
-        "Call this when you have information about storage type, temperature, excursion duration, "
-        "or whether the freeze-indicator tag has tripped."
+        "Call this as soon as you know the storage type. "
+        "IMPORTANT: always set freeze_indicator_tripped to true or false — never omit it. "
+        "When the operator confirms no excursion, set freeze_indicator_tripped to false. "
+        "Storage is not known by the system until freeze_indicator_tripped is explicitly set."
     ),
     parameters={
         "type": "object",
@@ -66,17 +68,27 @@ RECORD_STORAGE = ToolSpec(
             },
             "max_excursion_temp_c": {
                 "type": "number",
-                "description": "Maximum temperature reached during any excursion (°C).",
+                "description": (
+                    "Maximum temperature reached during any excursion (°C). "
+                    "Only set if an excursion actually occurred."
+                ),
             },
             "excursion_duration_hours": {
                 "type": "number",
-                "description": "How long the temperature excursion lasted (hours).",
+                "description": (
+                    "How long the temperature excursion lasted (hours). "
+                    "Only set if an excursion actually occurred."
+                ),
             },
             "freeze_indicator_tripped": {
                 "type": "boolean",
-                "description": "Whether the physical colour freeze-indicator tag has tripped.",
+                "description": (
+                    "Whether the physical colour freeze-indicator tag has tripped. "
+                    "REQUIRED — always set to true or false, never omit."
+                ),
             },
         },
+        "required": ["freeze_indicator_tripped"],
     },
 )
 

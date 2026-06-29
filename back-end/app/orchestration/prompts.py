@@ -13,15 +13,15 @@ _OBJECTIVE_DESCRIPTIONS: dict[FsmState, str] = {
     ),
     FsmState.ASK_STORAGE: (
         "Your current objective: determine the STORAGE CONDITION.\n"
-        "Ask whether the reagent is refrigerated (2–8 °C) or stored at room temperature "
-        "(15–25 °C). "
-        "Then ask if there was any temperature excursion — if so, the peak temperature "
-        "and for how long. "
-        "If the operator is unsure of the exact temperature, ask whether the physical "
-        "colour freeze-indicator tag on the kit has tripped. "
+        "Ask the operator two questions: (1) Is the reagent refrigerated (2–8 °C) or at "
+        "room temperature (15–25 °C)? (2) Has the freeze-indicator tag on the kit tripped?\n"
+        "The freeze-indicator question is MANDATORY — ask it every time and record the answer "
+        "as true or false in the record_storage tool call. Never omit freeze_indicator_tripped.\n"
+        "If there was also a temperature excursion, record the peak temperature and duration too. "
+        "If there was no excursion, do NOT set max_excursion_temp_c or excursion_duration_hours.\n"
         "FAIL = refrigerated item exceeded 8 °C for > 2 continuous hours, OR room-temp item "
         "exceeded 30 °C at any point, OR freeze-indicator tripped. "
-        "Record values using the record_storage tool."
+        "Call record_storage as soon as you have storage_type and freeze_indicator_tripped."
     ),
     FsmState.ASK_HISTORICAL: (
         "Your current objective: determine the HISTORICAL ERROR FLAG.\n"
