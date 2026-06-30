@@ -1,5 +1,7 @@
 export { default as Button } from './Button';
-export * from './MessageBubble';
-export * from './Composer';
 export type { ComposerHandle } from './Composer';
-export * from './TypingIndicator';
+export { default as Chip } from './Chip';
+export { default as IconButton } from './IconButton';
+export { default as MessageBubble } from './MessageBubble';
+export { default as TypingIndicator } from './TypingIndicator';
+export * from './Composer';

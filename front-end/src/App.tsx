@@ -1,9 +1,10 @@
-import { ChatPanel, Layout } from '@/features';
+import { Layout } from '@/layout';
+import { ChatPanelPage } from '@/pages';
 
 function App() {
   return (
     <Layout>
-      <ChatPanel />
+      <ChatPanelPage />
     </Layout>
   );
 }

@@ -17,6 +17,11 @@ export default defineConfig({
       '@features': path.resolve(__dirname, './src/features'),
       '@services': path.resolve(__dirname, './src/services'),
       '@ui': path.resolve(__dirname, './src/ui'),
+      '@state': path.resolve(__dirname, './src/state'),
+      '@pages': path.resolve(__dirname, './src/pages'),
+      '@layout': path.resolve(__dirname, './src/layout'),
+      '@context': path.resolve(__dirname, './src/context'),
+      '@lib': path.resolve(__dirname, './src/lib'),
     },
   },
   server: {

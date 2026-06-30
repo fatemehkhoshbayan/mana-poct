@@ -8,7 +8,7 @@
 
 - **Backend:** FastAPI (Python 3.10) + async SQLAlchemy 2.0 + PostgreSQL 16 + Alembic
 - **LLM gateway:** OpenRouter via the OpenAI-compatible SDK (vendor chosen by `LLM_MODEL` string)
-- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS
+- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS v4 — Material Design 3-inspired token system, light/dark mode, SSE streaming
 - **Observability:** LangFuse (Cloud free tier by default; self-host optional)
 - **Containers:** Docker + Docker Compose (single-command spin-up)
 
@@ -19,6 +19,7 @@ mana-poct/
 ├── docker-compose.yml
 ├── .env.example
 ├── Makefile
+├── SETUP.md                  installation, credentials, make targets
 ├── evals/                    end-to-end eval framework
 │   ├── scenarios.json        canonical 5-scenario fixture
 │   ├── run_eval.py           CLI runner (stdlib only)
@@ -42,31 +43,32 @@ mana-poct/
 │       └── tests/            pytest suite — rules engine · FSM · mock DB (49 tests)
 └── front-end/                React 19 + TypeScript — see front-end/README.md
     └── src/
+        ├── context/          ThemeContext · ThemeProvider · helper (light/dark mode)
+        ├── layout/           Layout · Header · Footer (h-screen flex chain)
+        ├── pages/            ChatPanelPage (owns chatReducer state)
+        ├── features/
+        │   └── chat-panel-page/
+        │       ├── ChatPanel.tsx      message list + Composer + streaming
+        │       ├── ProgressPanel.tsx  horizontal 4-pill QC variable strip
+        │       ├── DecisionCard.tsx   colour-coded final decision card
+        │       └── constants.ts       COLOR_STYLES · VAR_STATUS_STYLES maps
         ├── services/         types.ts · client.ts  (mirrors backend contracts)
-        ├── hooks/            useChatStream.ts · helper.ts
-        ├── state/            chatReducer.ts  (slice 1)
-        ├── features/         ChatPanel · ProgressPanel · DecisionCard · Layout
-        └── ui/               MessageBubble · Composer · TypingIndicator · Button
+        ├── hooks/            useChatStream.ts · useTheme.ts · helper.ts
+        ├── state/            chatReducer.ts  (SESSION_CREATED → STREAM_DONE)
+        ├── lib/              cn.ts (clsx + extended tailwind-merge)
+        └── ui/               Button · IconButton · Chip · Composer
+                              MessageBubble · TypingIndicator
 ```
 
 ## Quick start
 
 ```bash
-# 1. Copy and fill credentials
-cp .env.example .env
-# Edit .env — set OPENROUTER_API_KEY + LLM_MODEL (or leave blank for FakeProvider)
-
-# 2. Start everything
-make up
-# or: docker compose up --build
-
-# 3. Open
-# Frontend:  http://localhost:5173
-# API docs:  http://localhost:8000/docs
-# Health:    http://localhost:8000/api/health
+cp .env.example .env   # add OPENROUTER_API_KEY + LLM_MODEL (leave blank for FakeProvider)
+make up                # docker compose up --build
+# Frontend: http://localhost:5173  |  API docs: http://localhost:8000/docs
 ```
 
-> **No credentials needed for Slice 0** — the app boots on `FakeProvider` + `NoopTracer` with no keys.
+> Full installation steps, standalone dev servers, Make targets, credentials, and migration commands are in **[SETUP.md](./SETUP.md)**.
 
 ## API
 
@@ -84,15 +86,24 @@ Interactive Swagger UI at **`http://localhost:8000/docs`** — all endpoints doc
 
 Sending a message to a **resolved** session returns **HTTP 409** — start a new session via `POST /api/sessions` for the next device.
 
-## Chat UI behaviour
+## Chat UI
+
+The frontend is a full-viewport, frosted-glass chat interface styled with a linear gradient background (light/dark mode switchable via the header toggle).
+
+**Page layout (top → bottom):**
+1. **Header** — app name + theme toggle
+2. **QC Variables strip** — four horizontal pills (Consumable · Storage · Historical · EQA), each showing a `PENDING / PASS / WARN / FAIL` chip; the active FSM state is highlighted
+3. **Chat panel** — frosted-glass scrollable message list pinned above the Composer input
+4. **Footer** — copyright strip
 
 | State | What the user sees |
 | ----- | ------------------ |
-| Waiting for first token | Animated three-dot typing indicator (assistant bubble placeholder) |
-| Streaming | Assistant message bubble with a blinking cursor |
-| Turn complete | Input refocuses automatically so the user can type the next answer |
-| Decision reached | `DecisionCard` shown; composer locked with placeholder *"Session resolved — start a new check below"* |
-| Next device | Click **New QC Check** → fresh session, cleared chat and progress panel (no page reload) |
+| Waiting for first token | Animated three-dot typing indicator |
+| Streaming | Assistant bubble with a blinking cursor; QC variable pills update live |
+| Turn complete | Composer auto-refocuses so the user can type the next answer immediately |
+| Decision reached | Colour-coded `DecisionCard` (RED / YELLOW / BLUE / GREEN) with variables grid, directives, and collapsible raw payload |
+| Session locked | Composer disabled; **New QC Check** button appears |
+| Next device | Click **New QC Check** → fresh session, cleared chat and progress strip (no page reload) |
 
 ## The QC Decision Matrix
 
@@ -144,26 +155,8 @@ See [`evals/README.md`](./evals/README.md) for full usage, boundary thresholds, 
 | 1 — end-to-end POC          | ✅ Done  | Real FSM + LLM extraction + rules engine + DecisionCard       |
 | 2 — Fallbacks + mock DB     | ✅ Done  | Mock DB seed, lookup_lot/device, early resolution, FSM tests |
 | 3 — Robust dialogue         | ✅ Done  | Out-of-order, corrections, mark_known re-derive, 16 new tests |
-| 3b — UI polish              | ✅ Done  | Typing indicator, auto-focus, new session after resolution      |
+| 3b — UI polish              | ✅ Done  | Typing indicator, auto-focus, new session after resolution     |
+| 3c — UI redesign            | ✅ Done  | Design system (Tailwind v4 tokens), frosted-glass layout, DecisionCard colour-coding, layout stability fixes |
 | 4 — Observability           | 🔲       | LangFuse tracing                                              |
 | 5 — Polish + tests + events | 🔲       | Outbox, full test suite, README complete                      |
 
-## Development commands
-
-```bash
-make up          # docker compose up --build
-make down        # docker compose down
-make logs        # follow all logs
-make test        # pytest (backend)
-make fmt         # ruff + prettier
-make migrate     # alembic upgrade head
-make revision    # alembic autogenerate (msg=<message>)
-```
-
-## Credentials
-
-See [§11 of the implementation plan](./virtual-po-mossy-spring.md) for full credential setup instructions.
-
-- **Slice 0**: no keys needed
-- **Slice 1+**: `OPENROUTER_API_KEY` + `LLM_MODEL` (tool-calling capable model)
-- **Slice 4**: `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` + `LANGFUSE_HOST`

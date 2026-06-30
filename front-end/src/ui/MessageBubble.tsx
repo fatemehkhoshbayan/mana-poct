@@ -1,3 +1,16 @@
+/**
+ * A single chat message bubble with a frosted-glass avatar.
+ *
+ * - **User** messages: right-aligned, pink `bg-primary` bubble, `User` icon avatar.
+ * - **Assistant** messages: left-aligned, white bubble (dark mode: `bg-surface-bright`),
+ *   `Bot` icon avatar. Content is rendered as Markdown via `react-markdown`.
+ * - When `streaming` is `true`, a blinking cursor is appended to indicate live output.
+ *
+ * @param role - `'user'` | `'assistant'`
+ * @param content - Raw message text or Markdown string.
+ * @param streaming - When `true`, shows an animated cursor at the end of the content.
+ */
+import { Bot, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface MessageBubbleProps {
@@ -6,17 +19,31 @@ interface MessageBubbleProps {
   streaming?: boolean;
 }
 
-export function MessageBubble({ role, content, streaming }: MessageBubbleProps) {
+function MessageBubble({ role, content, streaming }: MessageBubbleProps) {
   const isUser = role === 'user';
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div
+      className={`gap-md flex items-start ${isUser ? 'flex-row-reverse justify-start' : ''} max-w-[85%] ${isUser ? 'ml-auto' : ''}`}
+    >
+      {/* Avatar */}
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/30">
+        {isUser ? (
+          <User size={16} className="text-white" />
+        ) : (
+          <Bot size={16} className="text-white" />
+        )}
+      </div>
+
+      {/* Bubble */}
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-          isUser ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-100'
+        className={`px-md py-md text-body-md rounded-xl shadow-sm ${
+          isUser
+            ? 'bg-primary text-on-primary-fixed font-medium'
+            : 'dark:bg-surface-bright dark:text-on-surface bg-white text-[#1A2535]'
         }`}
       >
         {isUser ? (
-          <span className="whitespace-pre-wrap">{content}</span>
+          <p className="whitespace-pre-wrap">{content}</p>
         ) : (
           <ReactMarkdown
             components={{
@@ -27,7 +54,7 @@ export function MessageBubble({ role, content, streaming }: MessageBubbleProps) 
               ol: ({ children }) => <ol className="mb-2 list-decimal pl-4">{children}</ol>,
               li: ({ children }) => <li className="mb-0.5">{children}</li>,
               code: ({ children }) => (
-                <code className="rounded bg-slate-700 px-1 py-0.5 font-mono text-xs">
+                <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs dark:bg-slate-700">
                   {children}
                 </code>
               ),
@@ -37,9 +64,11 @@ export function MessageBubble({ role, content, streaming }: MessageBubbleProps) 
           </ReactMarkdown>
         )}
         {streaming && (
-          <span className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-current align-middle" />
+          <p className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-current align-middle" />
         )}
       </div>
     </div>
   );
 }
+
+export default MessageBubble;

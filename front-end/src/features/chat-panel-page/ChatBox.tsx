@@ -64,12 +64,9 @@ export const ChatBox = () => {
         </Button>
 
         {streaming && (
-          <button
-            onClick={abort}
-            className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-slate-800"
-          >
+          <Button variant="outline" onClick={abort}>
             Abort
-          </button>
+          </Button>
         )}
       </div>
     </section>
