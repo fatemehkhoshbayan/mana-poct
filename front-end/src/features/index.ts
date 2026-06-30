@@ -1,5 +1,4 @@
-export { default as ChatBox } from './ChatBox';
-export { default as Layout } from './Layout';
-export { ChatPanel } from './ChatPanel';
-export { ProgressPanel } from './ProgressPanel';
-export { DecisionCard } from './DecisionCard';
+export { default as ChatBox } from './chat-panel-page/ChatBox';
+export { ChatPanel } from './chat-panel-page/ChatPanel';
+export { ProgressPanel } from './chat-panel-page/ProgressPanel';
+export { DecisionCard } from './chat-panel-page/DecisionCard';
