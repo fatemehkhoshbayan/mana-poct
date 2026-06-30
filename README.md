@@ -37,7 +37,7 @@ mana-poct/
 │       ├── domain/           variables · rules_engine · scenarios  (slice 1)
 │       ├── orchestration/    fsm · orchestrator · tools · prompts  (slice 1)
 │       ├── llm/              openrouter_provider · fake · factory  (slice 1)
-│       ├── observability/    tracer · langfuse_tracer · noop_tracer  (slice 4)
+│       ├── observability/    Tracer (abstract) · LangfuseTracer · NoopTracer  (slice 4)
 │       ├── events/           publisher · log_publisher · outbox  (slice 5)
 │       ├── mock_db/          fixtures · seed · repository  (slice 2)
 │       └── tests/            pytest suite — rules engine · FSM · mock DB (49 tests)
@@ -147,6 +147,20 @@ python evals/run_eval.py --scenarios A C E
 
 See [`evals/README.md`](./evals/README.md) for full usage, boundary thresholds, edge-case inventory, and historical results (including the 21/21 edge-case live run).
 
+## Observability
+
+Every dialogue turn is traced through a vendor-agnostic `Tracer` interface (`back-end/app/observability/`), mirroring the LLM provider pattern: `NoopTracer` by default, `LangfuseTracer` automatically selected once `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` are set in `.env`.
+
+Per turn, the trace tree is:
+
+```
+qc_turn (span)                     ← one per handle_turn() call, tagged with session_id/tenant_id
+├── llm_stream:<objective> (generation)   ← one per LLM stream call, captures model/tokens/output
+└── tool:<name> (span)                    ← one per tool execution (record_*/lookup_*)
+```
+
+No credentials → the app boots on `NoopTracer` with zero overhead; nothing is sent anywhere. With credentials set, open the LangFuse dashboard (`LANGFUSE_HOST`, default `https://cloud.langfuse.com`) to inspect full traces, token usage, and latency per turn.
+
 ## Delivery slices
 
 | Slice                       | Status   | Goal                                                          |
@@ -157,6 +171,6 @@ See [`evals/README.md`](./evals/README.md) for full usage, boundary thresholds, 
 | 3 — Robust dialogue         | ✅ Done  | Out-of-order, corrections, mark_known re-derive, 16 new tests |
 | 3b — UI polish              | ✅ Done  | Typing indicator, auto-focus, new session after resolution     |
 | 3c — UI redesign            | ✅ Done  | Design system (Tailwind v4 tokens), frosted-glass layout, DecisionCard colour-coding, layout stability fixes |
-| 4 — Observability           | 🔲       | LangFuse tracing                                              |
+| 4 — Observability           | ✅ Done  | LangFuse tracing (turn/generation/tool spans), token usage capture |
 | 5 — Polish + tests + events | 🔲       | Outbox, full test suite, README complete                      |
 
