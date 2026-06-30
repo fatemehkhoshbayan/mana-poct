@@ -7,6 +7,10 @@
  * below the status chip.
  *
  * Data flows in via `ChatState` (no internal state); updates are driven by `state` SSE events.
+ *
+ * Always renders as a single row of 4 pills. On small screens, text shrinks to fit and
+ * the DB lookup hint (e.g. lot number) drops below the status chip instead of sitting
+ * inline next to it, since there isn't enough horizontal room for both.
  */
 import type { ExtractionState, FsmState } from '@/services';
 import { Chip } from '@/ui';
@@ -26,24 +30,24 @@ export function ProgressPanel({ extraction, variableStatuses, currentFsm }: Prog
   const rows = getRows({ extraction, lotNumber, deviceSerial });
 
   return (
-    <div className="gap-sm flex">
+    <div className="gap-xs sm:gap-sm flex flex-row">
       {rows.map(row => {
         const isActive = currentFsm === row.activeState;
         return (
           <div
             key={row.label}
-            className={`gap-xs px-md py-sm flex flex-1 flex-col rounded-xl transition-all ${
+            className={`gap-xs p-sm sm:px-md sm:py-sm flex flex-1 flex-col overflow-hidden rounded-lg transition-all sm:rounded-xl ${
               isActive ? 'bg-primary shadow-md' : 'bg-surface backdrop-blur-sm'
             }`}
           >
-            <p className="text-body-sm text-on-surface flex items-center gap-2 align-middle font-semibold">
-              {row.label}
-              {isActive && <ArrowRight size={15} />}
+            <p className="text-label-sm sm:text-body-sm text-on-surface flex items-center gap-1 truncate align-middle font-semibold">
+              <span className="truncate">{row.label}</span>
+              {isActive && <ArrowRight size={12} className="shrink-0" />}
             </p>
-            <div className="gap-xs flex items-center justify-between">
+            <div className="gap-xs flex flex-col items-start sm:flex-row sm:items-center sm:justify-between">
               <Chip known={row.known} value={variableStatuses[row.statusKey]} />
               {row.dbHint && (
-                <p className="text-label-sm text-inverse-surface truncate">{row.dbHint}</p>
+                <p className="text-label-xs sm:text-label-sm text-inverse-surface">{row.dbHint}</p>
               )}
             </div>
           </div>
