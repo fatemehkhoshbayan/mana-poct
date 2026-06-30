@@ -62,7 +62,10 @@ back-end/
     │   ├── session.py       async_sessionmaker, get_db dependency
     │   └── base.py          declarative Base
     │
-    ├── observability/       LangFuse tracer (slice 4, currently noop)
+    ├── observability/       Vendor-agnostic Tracer (slice 4)
+    │   ├── tracer.py             Tracer ABC + get_tracer() factory + lazy `tracer` singleton
+    │   ├── noop_tracer.py        Default when no LangFuse credentials are set
+    │   └── langfuse_tracer.py    Real implementation (LangFuse v4 OTEL-based SDK)
     ├── events/              Outbox publisher (slice 5, currently stub)
     ├── mock_db/             Seeded lot/device fixtures + in-memory repository
     │   ├── fixtures.py      Static rows covering scenarios A–E
@@ -71,7 +74,9 @@ back-end/
     └── tests/
         ├── test_rules_engine.py   22 truth-table tests for the rules engine
         ├── test_fsm.py            mark_known boundaries + early-resolution chain
-        └── test_mock_db.py        lookup_lot/device executors + scenario triggers
+        ├── test_mock_db.py        lookup_lot/device executors + scenario triggers
+        ├── test_dialogue_robust.py  out-of-order collection + corrections
+        └── test_observability.py  NoopTracer no-ops + Orchestrator↔Tracer wiring
 ```
 
 ## Environment variables
@@ -84,9 +89,9 @@ Copy `../.env.example` to `../.env` and fill in values.
 | `OPENROUTER_API_KEY` | No | — | If blank, `FakeProvider` is used |
 | `LLM_MODEL` | No | `google/gemini-3.1-flash-lite` | Any OpenRouter model with tool-calling |
 | `LOG_LEVEL` | No | `INFO` | Python root logger level |
-| `LANGFUSE_PUBLIC_KEY` | No | — | Slice 4 observability |
-| `LANGFUSE_SECRET_KEY` | No | — | Slice 4 observability |
-| `LANGFUSE_HOST` | No | `https://cloud.langfuse.com` | Slice 4 observability |
+| `LANGFUSE_PUBLIC_KEY` | No | — | If blank (with secret key), `NoopTracer` is used |
+| `LANGFUSE_SECRET_KEY` | No | — | If blank (with public key), `NoopTracer` is used |
+| `LANGFUSE_HOST` | No | `https://cloud.langfuse.com` | LangFuse project host |
 
 ## Running locally
 
@@ -140,7 +145,7 @@ cd back-end
 uv run pytest
 ```
 
-49 tests total: rules-engine truth table, FSM `mark_known` / `can_resolve_early`, and mock DB lookup executors.
+71 tests total: rules-engine truth table, FSM `mark_known` / `can_resolve_early`, mock DB lookup executors, robust-dialogue corrections, and tracer/orchestrator wiring.
 
 ## Mock DB & fallback tools
 
@@ -165,6 +170,26 @@ Placeholder values (`"unknown"`, `"I don't know"`, etc.) are rejected — the as
 `can_resolve_early()` mirrors the §2.2 precedence chain: consumable FAIL → A; storage FAIL → B; historical FAIL → C. The orchestrator resolves as soon as `all_known()` or `can_resolve_early()` is true.
 
 The rules engine only includes **collected** variables in the decision payload (no default PASS/STANDARD for fields not yet gathered).
+
+## Observability (Slice 4)
+
+`app/observability/` defines a vendor-agnostic `Tracer` ABC (mirroring the `LLMProvider` pattern in `app/llm/`):
+
+- `get_tracer()` returns `LangfuseTracer` when `settings.has_langfuse` (both `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` set), else `NoopTracer`.
+- The module-level `tracer` singleton is built lazily on first access (avoids a circular import between `tracer.py` and its concrete implementations) and is the single instance shared across requests; `Orchestrator` also accepts an explicit `tracer=` for tests.
+- `LangfuseTracer` wraps the LangFuse v4 OTEL-based SDK: `start_as_current_observation(as_type=...)` for spans/generations, `propagate_attributes()` to correlate `session_id` / tenant tag onto the trace. Every method is wrapped in `try/except` so a LangFuse outage never breaks a QC dialogue turn.
+
+Tracing is wired into `Orchestrator.handle_turn`:
+
+| Span | Scope | Captures |
+|------|-------|----------|
+| `qc_turn` | One per `handle_turn()` call | `session_id`, `tenant_id` tag, user message in; outcome (`scenario` / `error` / `awaiting_input`) + total token usage out |
+| `llm_stream:<objective>` | One per LLM stream call (tool-iteration loop) | model, prompt size in; accumulated text + tool call names + token usage out |
+| `tool:<name>` | One per `record_*`/`lookup_*` execution | tool arguments in; JSON result out |
+
+`Usage` events emitted by the LLM provider (previously dropped) are now consumed by the orchestrator, summed per turn, and yielded as `UsageEvent`s — `sessions.py` accumulates these into the `input_tokens`/`output_tokens` columns already on the `Message` model.
+
+With no LangFuse credentials set, the app runs on `NoopTracer` (zero overhead, nothing sent anywhere) — exactly like `FakeProvider` for the LLM layer.
 
 ## Linting
 

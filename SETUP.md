@@ -82,7 +82,7 @@ make revision    # alembic autogenerate  msg=<message>
 |-------|--------------|
 | 0 | None — `FakeProvider` + `NoopTracer` |
 | 1+ | `OPENROUTER_API_KEY` · `LLM_MODEL` (tool-calling capable model) |
-| 4 | `LANGFUSE_PUBLIC_KEY` · `LANGFUSE_SECRET_KEY` · `LANGFUSE_HOST` |
+| 4 | `LANGFUSE_PUBLIC_KEY` · `LANGFUSE_SECRET_KEY` · `LANGFUSE_HOST` (optional — falls back to `NoopTracer` if blank) |
 
 Copy `.env.example` and fill in the values for the slices you are running:
 
