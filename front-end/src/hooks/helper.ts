@@ -1,5 +1,14 @@
 import type { Decision, SseError, StateEvent } from '@/services';
 
+/**
+ * Callbacks supplied to {@link useChatStream} to react to each SSE event type.
+ *
+ * - `onToken` — called once per streamed text chunk.
+ * - `onState` — called when the backend emits a `state` event containing updated extraction fields.
+ * - `onDecision` — called once when the QC decision is ready.
+ * - `onError` — called on any SSE `error` event or network failure.
+ * - `onDone` — called when the stream ends cleanly (`done` event or reader EOF).
+ */
 export interface StreamHandlers {
   onToken: (text: string) => void;
   onState: (state: StateEvent) => void;
@@ -8,6 +17,16 @@ export interface StreamHandlers {
   onDone: () => void;
 }
 
+/**
+ * Parse a single SSE frame (a block of lines delimited by a blank line) and
+ * dispatch to the appropriate handler.
+ *
+ * Handles event types: `token`, `state`, `decision`, `error`, `done`.
+ * Unknown event types with non-empty data are silently ignored.
+ *
+ * @param frame - One complete SSE frame (no surrounding blank lines needed).
+ * @param handlers - Callback map from {@link StreamHandlers}.
+ */
 export function parseFrame(frame: string, handlers: StreamHandlers): void {
   const lines = frame.split('\n');
   let eventType = 'message';
@@ -60,6 +79,15 @@ export function parseFrame(frame: string, handlers: StreamHandlers): void {
   }
 }
 
+/**
+ * Split a raw byte buffer into complete SSE frames, returning any incomplete
+ * trailing data as `rest` to be prepended to the next chunk.
+ *
+ * Frames are separated by `\n\n` (after normalising `\r\n` → `\n`).
+ *
+ * @param buf - Accumulated undecoded string from the stream reader.
+ * @returns `{ frames, rest }` — complete frames ready to parse, and the leftover tail.
+ */
 export function takeCompleteFrames(buf: string): { frames: string[]; rest: string } {
   const normalized = buf.replace(/\r\n/g, '\n');
   const parts = normalized.split('\n\n');
