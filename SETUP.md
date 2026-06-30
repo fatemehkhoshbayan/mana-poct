@@ -72,6 +72,7 @@ make test        # pytest (backend, inside container)
 make fmt         # ruff + prettier
 make migrate     # alembic upgrade head
 make revision    # alembic autogenerate  msg=<message>
+make kafka-up    # docker compose --profile kafka up --build (Slice 6 stretch — free, single-node Kafka)
 ```
 
 ---
@@ -83,6 +84,7 @@ make revision    # alembic autogenerate  msg=<message>
 | 0 | None — `FakeProvider` + `NoopTracer` |
 | 1+ | `OPENROUTER_API_KEY` · `LLM_MODEL` (tool-calling capable model) |
 | 4 | `LANGFUSE_PUBLIC_KEY` · `LANGFUSE_SECRET_KEY` · `LANGFUSE_HOST` (optional — falls back to `NoopTracer` if blank) |
+| 5 | None required — `LogPublisher` always runs. Optionally `NTFY_TOPIC` (free push notification, no signup) and/or `KAFKA_BOOTSTRAP_SERVERS` (Slice 6 stretch). |
 
 Copy `.env.example` and fill in the values for the slices you are running:
 

@@ -38,7 +38,7 @@ mana-poct/
 │       ├── orchestration/    fsm · orchestrator · tools · prompts  (slice 1)
 │       ├── llm/              openrouter_provider · fake · factory  (slice 1)
 │       ├── observability/    Tracer (abstract) · LangfuseTracer · NoopTracer  (slice 4)
-│       ├── events/           publisher · log_publisher · outbox  (slice 5)
+│       ├── events/           EventPublisher · LogPublisher · NtfyPublisher · KafkaPublisher · outbox  (slice 5/6)
 │       ├── mock_db/          fixtures · seed · repository  (slice 2)
 │       └── tests/            pytest suite — rules engine · FSM · mock DB (49 tests)
 └── front-end/                React 19 + TypeScript — see front-end/README.md
@@ -91,19 +91,20 @@ Sending a message to a **resolved** session returns **HTTP 409** — start a new
 The frontend is a full-viewport, frosted-glass chat interface styled with a linear gradient background (light/dark mode switchable via the header toggle).
 
 **Page layout (top → bottom):**
+
 1. **Header** — app name + theme toggle
 2. **QC Variables strip** — four horizontal pills (Consumable · Storage · Historical · EQA), each showing a `PENDING / PASS / WARN / FAIL` chip; the active FSM state is highlighted
 3. **Chat panel** — frosted-glass scrollable message list pinned above the Composer input
 4. **Footer** — copyright strip
 
-| State | What the user sees |
-| ----- | ------------------ |
-| Waiting for first token | Animated three-dot typing indicator |
-| Streaming | Assistant bubble with a blinking cursor; QC variable pills update live |
-| Turn complete | Composer auto-refocuses so the user can type the next answer immediately |
-| Decision reached | Colour-coded `DecisionCard` (RED / YELLOW / BLUE / GREEN) with variables grid, directives, and collapsible raw payload |
-| Session locked | Composer disabled; **New QC Check** button appears |
-| Next device | Click **New QC Check** → fresh session, cleared chat and progress strip (no page reload) |
+| State                   | What the user sees                                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Waiting for first token | Animated three-dot typing indicator                                                                                    |
+| Streaming               | Assistant bubble with a blinking cursor; QC variable pills update live                                                 |
+| Turn complete           | Composer auto-refocuses so the user can type the next answer immediately                                               |
+| Decision reached        | Colour-coded `DecisionCard` (RED / YELLOW / BLUE / GREEN) with variables grid, directives, and collapsible raw payload |
+| Session locked          | Composer disabled; **New QC Check** button appears                                                                     |
+| Next device             | Click **New QC Check** → fresh session, cleared chat and progress strip (no page reload)                               |
 
 ## The QC Decision Matrix
 
@@ -121,13 +122,13 @@ Early resolution: once a FAIL makes the outcome certain (e.g. expired lot → A,
 
 Start a **new session** for each path. Turn 1 must include a **lot number** — consumable is not marked known without it.
 
-| Path | Turn 1 (consumable) | Key trigger | Resolves |
-| ---- | --------------------- | ----------- | -------- |
-| **A** | `Lot number LOT-EXPIRED-1, expiry date 2026-01-15, vial opened 4 days ago` | Expired lot | Turn 1 |
-| **B** | `Lot number LOT-FRESH-1, expiry 2026-12-31, vial opened 5 days ago` | Turn 2: `9°C for 3 hours` excursion | Turn 2 |
-| **C** | `Lot number LOT-FRESH-1, expiry 2026-12-31, vial opened 5 days ago` | Turn 3: `2 consecutive QC failures` | Turn 3 |
-| **D** | `Lot number LOT-EQA-D, expiry 2026-12-31, vial opened 5 days ago` | Turn 4: EQA deadline ≤ 7 days, PENDING | Turn 4 |
-| **E** | `Lot number LOT-STANDARD, expiry 2026-12-31, vial opened 5 days ago` | All variables pass | Turn 4 |
+| Path  | Turn 1 (consumable)                                                        | Key trigger                            | Resolves |
+| ----- | -------------------------------------------------------------------------- | -------------------------------------- | -------- |
+| **A** | `Lot number LOT-EXPIRED-1, expiry date 2026-01-15, vial opened 4 days ago` | Expired lot                            | Turn 1   |
+| **B** | `Lot number LOT-FRESH-1, expiry 2026-12-31, vial opened 5 days ago`        | Turn 2: `9°C for 3 hours` excursion    | Turn 2   |
+| **C** | `Lot number LOT-FRESH-1, expiry 2026-12-31, vial opened 5 days ago`        | Turn 3: `2 consecutive QC failures`    | Turn 3   |
+| **D** | `Lot number LOT-EQA-D, expiry 2026-12-31, vial opened 5 days ago`          | Turn 4: EQA deadline ≤ 7 days, PENDING | Turn 4   |
+| **E** | `Lot number LOT-STANDARD, expiry 2026-12-31, vial opened 5 days ago`       | All variables pass                     | Turn 4   |
 
 **"I don't know" fallbacks** (Slice 2): the assistant can call `lookup_lot` / `lookup_device` against seeded mock data. Fixture IDs live in `back-end/app/mock_db/fixtures.py` (e.g. `LOT-EXPIRED-1`, `SN-FAIL-HIST-1`).
 
@@ -161,16 +162,35 @@ qc_turn (span)                     ← one per handle_turn() call, tagged with s
 
 No credentials → the app boots on `NoopTracer` with zero overhead; nothing is sent anywhere. With credentials set, open the LangFuse dashboard (`LANGFUSE_HOST`, default `https://cloud.langfuse.com`) to inspect full traces, token usage, and latency per turn.
 
+## Event-driven Hard Block dispatch
+
+When a device resolves to **Scenario A (Hard Block)**, the backend stages a row in the `events` table **in the same DB transaction** as the `qc_decisions` row — a transactional **outbox**, so the event can never be lost or double-fired relative to the decision. A background relay (`app/events/outbox.py`, started in the FastAPI lifespan) polls every `EVENT_RELAY_INTERVAL_SECONDS` (default 3s), hands unpublished rows to whichever `EventPublisher` sinks are configured, and only marks a row published once every sink succeeds — a failed sink is retried on the next pass.
+
+| Sink             | Always on?                           | What it does                                                                                                                                                                                                                                                                         |
+| ---------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `LogPublisher`   | ✅ always                            | Structured log line — the durable fallback/audit trail                                                                                                                                                                                                                               |
+| `NtfyPublisher`  | opt-in via `NTFY_TOPIC`              | Posts a real push notification to [ntfy.sh](https://ntfy.sh) — **free, no signup, no app required.** Open `https://ntfy.sh/<your topic>` in any browser and watch the Hard Block alert arrive live.                                                                                  |
+| `KafkaPublisher` | opt-in via `KAFKA_BOOTSTRAP_SERVERS` | Publishes to a real Kafka-compatible event bus (topic `poct.device.hardblock`, keyed by device serial) — the Slice 6 stretch goal. `docker compose --profile kafka up` (or `make kafka-up`) runs a free, single-node, KRaft-mode `apache/kafka` container — no ZooKeeper, no signup. |
+
+Set any subset of `NTFY_TOPIC` / `KAFKA_BOOTSTRAP_SERVERS` in `.env` — sinks fan out via `CompositePublisher`; with neither set, only the log line fires.
+
+**Live demo (zero extra setup beyond a browser tab):**
+
+1. Pick a unique topic, e.g. `mana-poct-hardblock-<yourname>`, and set `NTFY_TOPIC` in `.env`.
+2. Open `https://ntfy.sh/<that topic>` in a browser tab — no login, no install.
+3. Run the **Scenario A** path from the manual testing table below.
+4. The push notification appears in that tab within ~`EVENT_RELAY_INTERVAL_SECONDS`.
+
 ## Delivery slices
 
-| Slice                       | Status   | Goal                                                          |
-| --------------------------- | -------- | ------------------------------------------------------------- |
-| 0 — Skeleton & contracts    | ✅ Done  | Docker up, health green, hello-stream works, contracts frozen |
-| 1 — end-to-end POC          | ✅ Done  | Real FSM + LLM extraction + rules engine + DecisionCard       |
-| 2 — Fallbacks + mock DB     | ✅ Done  | Mock DB seed, lookup_lot/device, early resolution, FSM tests |
-| 3 — Robust dialogue         | ✅ Done  | Out-of-order, corrections, mark_known re-derive, 16 new tests |
-| 3b — UI polish              | ✅ Done  | Typing indicator, auto-focus, new session after resolution     |
-| 3c — UI redesign            | ✅ Done  | Design system (Tailwind v4 tokens), frosted-glass layout, DecisionCard colour-coding, layout stability fixes |
-| 4 — Observability           | ✅ Done  | LangFuse tracing (turn/generation/tool spans), token usage capture |
-| 5 — Polish + tests + events | 🔲       | Outbox, full test suite, README complete                      |
-
+| Slice                       | Status  | Goal                                                                                                         |
+| --------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| 0 — Skeleton & contracts    | ✅ Done | Docker up, health green, hello-stream works, contracts frozen                                                |
+| 1 — end-to-end POC          | ✅ Done | Real FSM + LLM extraction + rules engine + DecisionCard                                                      |
+| 2 — Fallbacks + mock DB     | ✅ Done | Mock DB seed, lookup_lot/device, early resolution, FSM tests                                                 |
+| 3 — Robust dialogue         | ✅ Done | Out-of-order, corrections, mark_known re-derive, 16 new tests                                                |
+| 3b — UI polish              | ✅ Done | Typing indicator, auto-focus, new session after resolution                                                   |
+| 3c — UI redesign            | ✅ Done | Design system (Tailwind v4 tokens), frosted-glass layout, DecisionCard colour-coding, layout stability fixes |
+| 4 — Observability           | ✅ Done | LangFuse tracing (turn/generation/tool spans), token usage capture                                           |
+| 5 — Polish + tests + events | ✅ Done | Transactional outbox + background relay; LogPublisher + ntfy.sh push notification                            |
+| 6 — (Stretch) Real Kafka    | ✅ Done | `KafkaPublisher` (aiokafka) + free single-node KRaft Kafka under `--profile kafka`                           |
