@@ -34,6 +34,12 @@ services:
         - action: sync
           path: ./back-end
           target: /app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   frontend:
     build:
@@ -44,7 +50,8 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
       - ./front-end/src:/app/src
     develop:
@@ -52,6 +59,25 @@ services:
         - action: sync
           path: ./front-end/src
           target: /app/src
+
+  # Optional: a real Kafka-compatible event bus for Hard Block
+  # dispatch. Single-node, KRaft mode (no ZooKeeper), free + open source.
+  # Enable with: docker compose --profile kafka up
+  kafka:
+    image: apache/kafka:3.9.2
+    profiles: ["kafka"]
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: poct-demo-cluster
 
 volumes:
   postgres_data:

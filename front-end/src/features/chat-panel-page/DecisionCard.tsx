@@ -4,7 +4,8 @@
  * Visual structure (top to bottom):
  * 1. Colour-coded header — scenario name + optional **QC LOCKED** badge.
  * 2. Resolved action — plain-text clinical instruction.
- * 3. Variable grid — 2-column cards showing each variable's verdict (PASS/WARN/FAIL).
+ * 3. Variable grid — cards showing each variable's verdict (PASS/WARN/FAIL); single
+ *    column on small screens, 2 columns from the `sm` breakpoint up.
  * 4. Required actions — bulleted directive list.
  * 5. Collapsible raw JSON payload for debugging.
  *
@@ -60,7 +61,7 @@ export function DecisionCard({ decision }: DecisionCardProps) {
 
       {/* Variables grid */}
       {Object.keys(decision.variables).length > 0 && (
-        <div className="mt-md gap-sm grid grid-cols-2">
+        <div className="mt-md gap-sm grid grid-cols-1 sm:grid-cols-2">
           {Object.entries(decision.variables).map(([k, v]) => {
             const varStyle = VAR_STATUS_STYLES[v] ?? VAR_STATUS_STYLES.PASS;
             return (
@@ -70,7 +71,7 @@ export function DecisionCard({ decision }: DecisionCardProps) {
                 </p>
                 <div className="mt-xs gap-xs flex items-center justify-between">
                   <p className={cn('text-headline-sm font-bold', varStyle.text)}>{v}</p>
-                  <p className={cn('px-xs rounded py-[2px] text-[10px] font-bold', varStyle.chip)}>
+                  <p className={cn('px-xs rounded py-1 text-[10px] font-bold', varStyle.chip)}>
                     {v}
                   </p>
                 </div>

@@ -11,7 +11,7 @@
 function Chip({ known, value }: { known: boolean; value: string | undefined }) {
   if (!known || value === undefined) {
     return (
-      <span className="rounded border border-[#b45d00]/20 bg-[#fff4e5] px-xs py-[2px] text-[10px] font-bold text-[#b45d00]">
+      <span className="px-xs text-label-xs sm:text-label-sm rounded border border-amber-300/40 bg-amber-100 py-0.5 font-bold text-amber-700">
         PENDING
       </span>
     );
@@ -21,11 +21,13 @@ function Chip({ known, value }: { known: boolean; value: string | undefined }) {
     value === 'FAIL'
       ? 'bg-red-100 text-red-700 border-red-300/40'
       : value === 'WARN'
-        ? 'bg-[#fff4e5] text-[#b45d00] border-[#b45d00]/20'
-        : 'bg-[#e6f4ea] text-[#1e7e34] border-[#1e7e34]/20';
+        ? 'bg-amber-100 text-amber-700 border-amber-300/40'
+        : 'bg-emerald-100 text-emerald-700 border-emerald-300/40';
 
   return (
-    <span className={`rounded border px-xs py-[2px] text-[10px] font-bold ${styles}`}>
+    <span
+      className={`px-xs text-label-xs sm:text-label-sm rounded border py-0.5 font-bold ${styles}`}
+    >
       {value}
     </span>
   );

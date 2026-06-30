@@ -66,7 +66,14 @@ back-end/
     │   ├── tracer.py             Tracer ABC + get_tracer() factory + lazy `tracer` singleton
     │   ├── noop_tracer.py        Default when no LangFuse credentials are set
     │   └── langfuse_tracer.py    Real implementation (LangFuse v4 OTEL-based SDK)
-    ├── events/              Outbox publisher (slice 5, currently stub)
+    ├── events/              Transactional outbox + fan-out publishers (slice 5/6)
+    │   ├── publisher.py          EventPublisher ABC
+    │   ├── log_publisher.py      Always-on structured-log sink
+    │   ├── ntfy_publisher.py     Free, zero-signup push notification (ntfy.sh)
+    │   ├── kafka_publisher.py    Real Kafka event-bus sink (aiokafka)
+    │   ├── composite_publisher.py  Fans one event out to every configured sink
+    │   ├── factory.py            get_publisher() — builds the fan-out from settings
+    │   └── outbox.py             write_outbox_event() + background relay_loop()
     ├── mock_db/             Seeded lot/device fixtures + in-memory repository
     │   ├── fixtures.py      Static rows covering scenarios A–E
     │   ├── repository.py    Sync lookup index (used mid-turn by tool executors)
@@ -76,7 +83,8 @@ back-end/
         ├── test_fsm.py            mark_known boundaries + early-resolution chain
         ├── test_mock_db.py        lookup_lot/device executors + scenario triggers
         ├── test_dialogue_robust.py  out-of-order collection + corrections
-        └── test_observability.py  NoopTracer no-ops + Orchestrator↔Tracer wiring
+        ├── test_observability.py  NoopTracer no-ops + Orchestrator↔Tracer wiring
+        └── test_events.py        publishers, fan-out, outbox write/drain/retry
 ```
 
 ## Environment variables
@@ -92,6 +100,11 @@ Copy `../.env.example` to `../.env` and fill in values.
 | `LANGFUSE_PUBLIC_KEY` | No | — | If blank (with secret key), `NoopTracer` is used |
 | `LANGFUSE_SECRET_KEY` | No | — | If blank (with public key), `NoopTracer` is used |
 | `LANGFUSE_HOST` | No | `https://cloud.langfuse.com` | LangFuse project host |
+| `NTFY_TOPIC` | No | — | If set, Hard Block events also push to `https://ntfy.sh/<topic>` (free, no signup) |
+| `NTFY_SERVER` | No | `https://ntfy.sh` | Override for a self-hosted ntfy instance |
+| `KAFKA_BOOTSTRAP_SERVERS` | No | — | If set, Hard Block events also publish to this Kafka-compatible broker |
+| `KAFKA_TOPIC` | No | `poct.device.hardblock` | Kafka topic for Hard Block events |
+| `EVENT_RELAY_INTERVAL_SECONDS` | No | `3.0` | Outbox relay poll interval |
 
 ## Running locally
 
@@ -145,7 +158,7 @@ cd back-end
 uv run pytest
 ```
 
-71 tests total: rules-engine truth table, FSM `mark_known` / `can_resolve_early`, mock DB lookup executors, robust-dialogue corrections, and tracer/orchestrator wiring.
+81 tests total: rules-engine truth table, FSM `mark_known` / `can_resolve_early`, mock DB lookup executors, robust-dialogue corrections, tracer/orchestrator wiring, and event publisher/outbox/relay behavior.
 
 ## Mock DB & fallback tools
 
@@ -190,6 +203,39 @@ Tracing is wired into `Orchestrator.handle_turn`:
 `Usage` events emitted by the LLM provider (previously dropped) are now consumed by the orchestrator, summed per turn, and yielded as `UsageEvent`s — `sessions.py` accumulates these into the `input_tokens`/`output_tokens` columns already on the `Message` model.
 
 With no LangFuse credentials set, the app runs on `NoopTracer` (zero overhead, nothing sent anywhere) — exactly like `FakeProvider` for the LLM layer.
+
+## Event-driven Hard Block dispatch (Slice 5/6)
+
+`app/events/` implements the bonus "SaaS Event-Driven Architecture" ask: when a session resolves to **Scenario A (Hard Block)**, `sessions.py` stages a row in the `events` table inside the **same DB transaction** as the `qc_decisions` insert (`write_outbox_event`, called inside the existing `async with db.begin():` block) — the classic transactional-outbox pattern, which avoids the dual-write problem (decision and event can never disagree, even on a crash).
+
+A background relay task (`relay_loop`, started in `main.py`'s lifespan, cancelled on shutdown) polls the `events` table every `EVENT_RELAY_INTERVAL_SECONDS` for unpublished rows and hands each to the configured `EventPublisher`. Sinks are added by `get_publisher()` (mirroring `llm/factory.py` / `observability/tracer.py`):
+
+| Sink | Enabled by | Behavior |
+|------|-----------|----------|
+| `LogPublisher` | always | Structured log line — durable fallback, always runs |
+| `NtfyPublisher` | `NTFY_TOPIC` set | `POST`s to `https://ntfy.sh/<topic>` — free, no account, no API key. Viewing requires zero setup: open that URL in any browser. |
+| `KafkaPublisher` | `KAFKA_BOOTSTRAP_SERVERS` set | `aiokafka` producer → topic `KAFKA_TOPIC`, keyed by device serial |
+
+Multiple sinks run through `CompositePublisher`, which fans out concurrently (`asyncio.gather`) — one sink failing doesn't block the others, but the outbox row is only marked `published=true` once **every** configured sink succeeds; a partial failure leaves the row pending so the next relay pass retries it.
+
+**Try it locally (no Docker needed for ntfy):**
+```bash
+# 1. Set a unique topic in .env
+echo 'NTFY_TOPIC=mana-poct-hardblock-yourname' >> .env
+
+# 2. Open in a browser — no signup, no app:
+open https://ntfy.sh/mana-poct-hardblock-yourname
+
+# 3. Run a Scenario A conversation (see manual testing table in the root README)
+#    The push notification appears in that tab within EVENT_RELAY_INTERVAL_SECONDS.
+```
+
+**Try the Kafka stretch goal:**
+```bash
+make kafka-up                         # docker compose --profile kafka up --build
+# then in .env: KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+```
+This runs `apache/kafka` (3.9, KRaft mode — no ZooKeeper), free and open source, as a single extra container.
 
 ## Linting
 

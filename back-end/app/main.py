@@ -47,7 +47,34 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("mock_db seed failed (non-fatal): %s", exc)
 
+    # Start the outbox relay (Surface I) — drains Hard Block events to whichever
+    # EventPublisher sinks are configured (log always; ntfy/Kafka opt-in).
+    relay_task = None
+    try:
+        import asyncio  # noqa: PLC0415
+
+        from app.db.session import async_session  # noqa: PLC0415
+        from app.events.factory import get_publisher  # noqa: PLC0415
+        from app.events.outbox import relay_loop  # noqa: PLC0415
+
+        relay_task = asyncio.create_task(
+            relay_loop(
+                async_session,
+                get_publisher(),
+                interval_seconds=settings.EVENT_RELAY_INTERVAL_SECONDS,
+            )
+        )
+    except Exception:
+        logger.exception("Failed to start event relay (non-fatal)")
+
     yield
+
+    if relay_task is not None:
+        relay_task.cancel()
+        try:
+            await relay_task
+        except Exception:
+            pass
 
     # Flush tracer on shutdown (Surface H)
     try:
@@ -71,7 +98,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://frontend:5173"],
+    allow_origins=settings.cors_allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

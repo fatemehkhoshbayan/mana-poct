@@ -55,7 +55,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   };
 
   return (
-    <div className="relative">
+    <div className="relative pt-2">
       <div className="relative">
         <textarea
           id="composer-textarea"

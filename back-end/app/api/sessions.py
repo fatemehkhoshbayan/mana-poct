@@ -19,6 +19,7 @@ from app.domain.variables import (
     derive_historical,
     derive_storage,
 )
+from app.events.outbox import write_outbox_event
 from app.llm.factory import get_provider
 from app.orchestration.orchestrator import (
     DecisionEvent,
@@ -35,7 +36,7 @@ from app.schemas.api import (
     SessionDetail,
     SessionMessage,
 )
-from app.schemas.domain import ExtractionState, FsmState
+from app.schemas.domain import ExtractionState, FsmState, Scenario
 from app.schemas.llm import LlmMessage
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,9 @@ async def send_message(
 
     # Load message history
     result = await db.execute(
-        select(Message).where(Message.session_id == session_id).order_by(Message.created_at)
+        select(Message)
+        .where(Message.session_id == session_id)
+        .order_by(Message.created_at)
     )
     db_messages = result.scalars().all()
     history = _db_messages_to_llm(db_messages)
@@ -195,19 +198,21 @@ async def send_message(
                     ext = event.extraction
                     variable_statuses: dict[str, str] = {}
                     if ext.consumable_known:
-                        variable_statuses["consumable_status"] = (
-                            derive_consumable(ext.consumable, today).value
-                        )
+                        variable_statuses["consumable_status"] = derive_consumable(
+                            ext.consumable, today
+                        ).value
                     if ext.storage_known:
-                        variable_statuses["storage_condition"] = (
-                            derive_storage(ext.storage).value
-                        )
+                        variable_statuses["storage_condition"] = derive_storage(
+                            ext.storage
+                        ).value
                     if ext.historical_known:
-                        variable_statuses["historical_error_flag"] = (
-                            derive_historical(ext.historical).value
-                        )
+                        variable_statuses["historical_error_flag"] = derive_historical(
+                            ext.historical
+                        ).value
                     if ext.eqa_known:
-                        variable_statuses["eqa_status"] = derive_eqa(ext.eqa, today).value
+                        variable_statuses["eqa_status"] = derive_eqa(
+                            ext.eqa, today
+                        ).value
                     state_payload = {
                         **event.extraction.model_dump(mode="json"),
                         "current_state": event.current_state.value,
@@ -234,13 +239,28 @@ async def send_message(
                         # Update session status
                         session.status = "resolved"
                         session.fsm_state = "RESOLVED"
-                        session.resolved_at = datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                        session.resolved_at = datetime.now(tz=timezone.utc).replace(
+                            tzinfo=None
+                        )
                         db.add(session)
+
+                        # Hard Block (Scenario A) — stage an outbox event in the SAME
+                        # transaction as the decision, so dispatch is atomic with it.
+                        if d.scenario == Scenario.A:
+                            write_outbox_event(
+                                db,
+                                session_id=session_id,
+                                event_type="device.hardblock",
+                                payload=d.model_dump(mode="json"),
+                            )
 
                     yield {"event": "decision", "data": d.model_dump_json()}
 
                 elif isinstance(event, ErrorEvent):
-                    yield {"event": "error", "data": json.dumps({"message": event.message})}
+                    yield {
+                        "event": "error",
+                        "data": json.dumps({"message": event.message}),
+                    }
 
                 elif isinstance(event, UsageEvent):
                     input_tokens += event.input_tokens
@@ -299,7 +319,9 @@ async def get_session_detail(
         raise HTTPException(status_code=404, detail="Session not found")
 
     msg_result = await db.execute(
-        select(Message).where(Message.session_id == session_id).order_by(Message.created_at)
+        select(Message)
+        .where(Message.session_id == session_id)
+        .order_by(Message.created_at)
     )
     messages = msg_result.scalars().all()
 

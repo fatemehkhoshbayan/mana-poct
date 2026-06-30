@@ -16,9 +16,11 @@ interface IHeaderProps {
 
 function Header({ toggleTheme, theme }: IHeaderProps) {
   return (
-    <header className="px-2xl py-md bg-surface sticky top-0 z-50 flex w-full items-center justify-between border-b border-white/20">
+    <header className="py-sm sm:py-lg px-lg sm:px-2xl bg-surface sticky top-0 z-50 flex w-full items-center justify-between border-b border-white/20">
       <div className="gap-sm flex items-baseline">
-        <span className="text-on-surface text-headline-lg font-bold">Mana POCT</span>
+        <span className="text-on-surface text-headline-md sm:text-headline-lg font-bold">
+          Mana POCT
+        </span>
         <span className="font-label-md text-label-md text-on-surface/60">QC Assistant</span>
       </div>
       <div className="gap-md flex items-center">

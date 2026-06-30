@@ -111,6 +111,10 @@
   --text-label-sm: 11px;
   --text-label-sm--line-height: 1;
   --text-label-sm--font-weight: 500;
+
+  --text-label-xs: 9px;
+  --text-label-xs--line-height: 1;
+  --text-label-xs--font-weight: 400;
 }
 
 /* Dark mode — override only the colors that change */

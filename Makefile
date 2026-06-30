@@ -1,10 +1,13 @@
-.PHONY: up down logs test seed fmt migrate revision shell-backend
+.PHONY: up down logs test seed fmt migrate revision shell-backend kafka-up
 
 build:
 	docker compose up --build
 	
 up:
 	docker compose up
+
+kafka-up:
+	docker compose --profile kafka up --build
 
 down:
 	docker compose down
