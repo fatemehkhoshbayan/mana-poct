@@ -21,7 +21,12 @@
       "@hooks/*": ["./src/hooks/*"],
       "@features/*": ["./src/features/*"],
       "@services/*": ["./src/services/*"],
-      "@ui/*": ["./src/ui/*"]
+      "@ui/*": ["./src/ui/*"],
+      "@state/*": ["./src/state/*"],
+      "@pages/*": ["./src/pages/*"],
+      "@layout/*": ["./src/layout/*"],
+      "@context/*": ["./src/context/*"],
+      "@lib/*": ["./src/lib/*"]
     },
 
     /* Linting */
