@@ -26,6 +26,7 @@ from app.orchestration.orchestrator import (
     Orchestrator,
     StateEvent,
     TokenEvent,
+    UsageEvent,
 )
 from app.orchestration.prompts import GREETING
 from app.schemas.api import (
@@ -240,6 +241,10 @@ async def send_message(
 
                 elif isinstance(event, ErrorEvent):
                     yield {"event": "error", "data": json.dumps({"message": event.message})}
+
+                elif isinstance(event, UsageEvent):
+                    input_tokens += event.input_tokens
+                    output_tokens += event.output_tokens
 
         except GeneratorExit:
             return

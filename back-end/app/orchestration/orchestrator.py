@@ -9,11 +9,13 @@ from typing import Any, AsyncIterator
 
 from app.domain.rules_engine import resolve
 from app.llm.base import LLMProvider
+from app.observability.tracer import Tracer
+from app.observability.tracer import tracer as default_tracer
 from app.orchestration.fsm import all_known, can_resolve_early, mark_known, next_objective
 from app.orchestration.prompts import build_system_prompt
 from app.orchestration.tools import ALL_TOOLS, execute_tool
 from app.schemas.domain import Decision, ExtractionState, FsmState
-from app.schemas.llm import LlmMessage, StreamDone, TextDelta, ToolCall, ToolCallDelta
+from app.schemas.llm import LlmMessage, StreamDone, TextDelta, ToolCall, ToolCallDelta, Usage
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +44,19 @@ class ErrorEvent:
     message: str
 
 
-OrchestratorEvent = TokenEvent | StateEvent | DecisionEvent | ErrorEvent
+@dataclass
+class UsageEvent:
+    input_tokens: int
+    output_tokens: int
+
+
+OrchestratorEvent = TokenEvent | StateEvent | DecisionEvent | ErrorEvent | UsageEvent
 
 
 class Orchestrator:
-    def __init__(self, provider: LLMProvider) -> None:
+    def __init__(self, provider: LLMProvider, tracer: Tracer | None = None) -> None:
         self._provider = provider
+        self._tracer = tracer or default_tracer
 
     async def handle_turn(
         self,
@@ -84,115 +93,160 @@ class Orchestrator:
             extraction.eqa_known,
         )
 
-        for _iteration in range(MAX_TOOL_ITERATIONS):
-            objective = next_objective(extraction)
-            system_prompt = build_system_prompt(objective, today=today)
+        total_input_tokens = 0
+        total_output_tokens = 0
+        turn_outcome: str = "awaiting_input"
 
-            logger.info(
-                "  iteration=%d  objective=%s  history_len=%d",
-                _iteration,
-                objective.value,
-                len(messages),
-            )
+        with self._tracer.start_turn(
+            session_id=session_id, tenant_id=tenant_id, user_message=user_message
+        ) as turn:
+            for _iteration in range(MAX_TOOL_ITERATIONS):
+                objective = next_objective(extraction)
+                system_prompt = build_system_prompt(objective, today=today)
 
-            accumulated_text = ""
-            pending_tool_calls: list[ToolCall] = []
-
-            async for event in self._provider.stream(
-                system=system_prompt,
-                messages=messages,
-                tools=ALL_TOOLS,
-            ):
-                if isinstance(event, TextDelta):
-                    accumulated_text += event.text
-                    yield TokenEvent(text=event.text)
-
-                elif isinstance(event, ToolCallDelta):
-                    pending_tool_calls.append(event.call)
-
-                elif isinstance(event, StreamDone):
-                    break
-
-            logger.info(
-                "  stream done: text_len=%d  tool_calls=%s",
-                len(accumulated_text),
-                [tc.name for tc in pending_tool_calls],
-            )
-
-            # Append assistant turn to history
-            messages.append(
-                LlmMessage(
-                    role="assistant",
-                    content=accumulated_text,
-                    tool_calls=pending_tool_calls,
+                logger.info(
+                    "  iteration=%d  objective=%s  history_len=%d",
+                    _iteration,
+                    objective.value,
+                    len(messages),
                 )
-            )
 
-            if not pending_tool_calls:
-                # No tool calls — turn ends; await more input from operator
-                logger.info("  no tool calls — turn ends")
-                break
+                accumulated_text = ""
+                pending_tool_calls: list[ToolCall] = []
 
-            # Execute tool calls and append results
-            for tc in pending_tool_calls:
-                extraction, result_json = execute_tool(
-                    tc.name, tc.arguments, extraction
+                with self._tracer.start_generation(
+                    name=f"llm_stream:{objective.value}",
+                    model=self._provider.model,
+                    input={"system": system_prompt, "messages": len(messages)},
+                ) as generation:
+                    async for event in self._provider.stream(
+                        system=system_prompt,
+                        messages=messages,
+                        tools=ALL_TOOLS,
+                    ):
+                        if isinstance(event, TextDelta):
+                            accumulated_text += event.text
+                            yield TokenEvent(text=event.text)
+
+                        elif isinstance(event, ToolCallDelta):
+                            pending_tool_calls.append(event.call)
+
+                        elif isinstance(event, Usage):
+                            total_input_tokens += event.input_tokens
+                            total_output_tokens += event.output_tokens
+                            yield UsageEvent(
+                                input_tokens=event.input_tokens,
+                                output_tokens=event.output_tokens,
+                            )
+
+                        elif isinstance(event, StreamDone):
+                            break
+
+                    generation.update(
+                        output={
+                            "text": accumulated_text,
+                            "tool_calls": [tc.name for tc in pending_tool_calls],
+                        },
+                        usage_details={
+                            "input": total_input_tokens,
+                            "output": total_output_tokens,
+                        },
+                    )
+
+                logger.info(
+                    "  stream done: text_len=%d  tool_calls=%s",
+                    len(accumulated_text),
+                    [tc.name for tc in pending_tool_calls],
                 )
+
+                # Append assistant turn to history
                 messages.append(
                     LlmMessage(
-                        role="tool",
-                        content=result_json,
-                        tool_call_id=tc.id,
-                        name=tc.name,
+                        role="assistant",
+                        content=accumulated_text,
+                        tool_calls=pending_tool_calls,
                     )
                 )
 
-            # Emit state update after tool execution
-            objective = next_objective(extraction)
-            logger.info(
-                "  after tools: known=[c=%s s=%s h=%s e=%s]  next_obj=%s",
-                extraction.consumable_known,
-                extraction.storage_known,
-                extraction.historical_known,
-                extraction.eqa_known,
-                objective.value,
-            )
-            yield StateEvent(
-                extraction=extraction,
-                current_state=objective,
-                current_objective=objective.value,
-            )
+                if not pending_tool_calls:
+                    # No tool calls — turn ends; await more input from operator
+                    logger.info("  no tool calls — turn ends")
+                    break
 
-            # Short-circuit if outcome is already certain (precedence chain §2.2)
-            if all_known(extraction) or can_resolve_early(extraction, today):
-                break
+                # Execute tool calls and append results
+                for tc in pending_tool_calls:
+                    with self._tracer.start_span(
+                        name=f"tool:{tc.name}", input=tc.arguments
+                    ) as tool_span:
+                        extraction, result_json = execute_tool(
+                            tc.name, tc.arguments, extraction
+                        )
+                        tool_span.update(output=result_json)
+                    messages.append(
+                        LlmMessage(
+                            role="tool",
+                            content=result_json,
+                            tool_call_id=tc.id,
+                            name=tc.name,
+                        )
+                    )
 
-        # Resolve if all variables are known or the outcome is already certain
-        if all_known(extraction) or can_resolve_early(extraction, today):
-            logger.info(
-                "  resolving — all_known=%s  early=%s",
-                all_known(extraction),
-                can_resolve_early(extraction, today),
-            )
-            try:
-                decision = resolve(
-                    extraction,
-                    session_id=session_id,
-                    tenant_id=tenant_id,
-                    today=today,
-                )
+                # Emit state update after tool execution
+                objective = next_objective(extraction)
                 logger.info(
-                    "  decision: scenario=%s  consumable=%s  storage=%s  historical=%s  eqa=%s",
-                    decision.scenario.value,
-                    decision.variables.get("consumable_status"),
-                    decision.variables.get("storage_condition"),
-                    decision.variables.get("historical_error_flag"),
-                    decision.variables.get("eqa_status"),
+                    "  after tools: known=[c=%s s=%s h=%s e=%s]  next_obj=%s",
+                    extraction.consumable_known,
+                    extraction.storage_known,
+                    extraction.historical_known,
+                    extraction.eqa_known,
+                    objective.value,
                 )
-                yield DecisionEvent(decision=decision)
-            except Exception as exc:
-                logger.exception("Rules engine failed")
-                yield ErrorEvent(message=f"Decision engine error: {exc}")
+                yield StateEvent(
+                    extraction=extraction,
+                    current_state=objective,
+                    current_objective=objective.value,
+                )
+
+                # Short-circuit if outcome is already certain (precedence chain §2.2)
+                if all_known(extraction) or can_resolve_early(extraction, today):
+                    break
+
+            # Resolve if all variables are known or the outcome is already certain
+            if all_known(extraction) or can_resolve_early(extraction, today):
+                logger.info(
+                    "  resolving — all_known=%s  early=%s",
+                    all_known(extraction),
+                    can_resolve_early(extraction, today),
+                )
+                try:
+                    decision = resolve(
+                        extraction,
+                        session_id=session_id,
+                        tenant_id=tenant_id,
+                        today=today,
+                    )
+                    logger.info(
+                        "  decision: scenario=%s  consumable=%s  storage=%s  historical=%s  eqa=%s",
+                        decision.scenario.value,
+                        decision.variables.get("consumable_status"),
+                        decision.variables.get("storage_condition"),
+                        decision.variables.get("historical_error_flag"),
+                        decision.variables.get("eqa_status"),
+                    )
+                    turn_outcome = decision.scenario.value
+                    yield DecisionEvent(decision=decision)
+                except Exception as exc:
+                    logger.exception("Rules engine failed")
+                    turn_outcome = "error"
+                    yield ErrorEvent(message=f"Decision engine error: {exc}")
+
+            turn.update(
+                output={"outcome": turn_outcome},
+                metadata={
+                    "input_tokens": total_input_tokens,
+                    "output_tokens": total_output_tokens,
+                },
+            )
 
     def updated_messages(
         self,
