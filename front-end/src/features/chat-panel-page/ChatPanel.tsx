@@ -9,9 +9,10 @@
  * - Renders the **New QC Check** button once a `decision` event locks the session.
  *
  * All state is external (passed as `state` + `dispatch`) — this component is purely presentational
- * with side-effects confined to the three `useEffect` hooks.
+ * with side-effects confined to the three `useEffect` hooks. If the initial session creation
+ * fails, an inline **Retry** button re-runs it (same `initSession` used by New QC Check).
  */
-import { useEffect, useRef, type Dispatch } from 'react';
+import { useCallback, useEffect, useRef, type Dispatch } from 'react';
 import { useChatStream } from '@/hooks';
 import { createSession } from '@/services';
 import { Button, Composer, MessageBubble, TypingIndicator, type ComposerHandle } from '@/ui';
@@ -28,6 +29,7 @@ export function ChatPanel({ state, dispatch }: ChatPanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<ComposerHandle>(null);
   const prevStreamingRef = useRef(false);
+  const sessionInitRef = useRef(false);
 
   // Refocus the input as soon as streaming ends so the user can type immediately.
   useEffect(() => {
@@ -37,30 +39,7 @@ export function ChatPanel({ state, dispatch }: ChatPanelProps) {
     prevStreamingRef.current = state.isStreaming;
   }, [state.isStreaming]);
 
-  // Create session on mount
-  useEffect(() => {
-    createSession()
-      .then(res =>
-        dispatch({
-          type: 'SESSION_CREATED',
-          sessionId: res.session_id,
-          fsm: res.state,
-          greeting: res.greeting,
-        }),
-      )
-      .catch(err => dispatch({ type: 'STREAM_ERROR', message: String(err) }));
-  }, []);
-
-  // Auto-scroll: set scrollTop directly on the list container instead of using
-  // scrollIntoView, which traverses all ancestors and can trigger layout
-  // recalculations in surrounding flex elements once the list becomes scrollable.
-  useEffect(() => {
-    if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
-    }
-  }, [state.messages, state.streamingText]);
-
-  const handleNewSession = async () => {
+  const initSession = useCallback(async () => {
     try {
       const res = await createSession();
       dispatch({
@@ -72,6 +51,29 @@ export function ChatPanel({ state, dispatch }: ChatPanelProps) {
     } catch (err) {
       dispatch({ type: 'STREAM_ERROR', message: String(err) });
     }
+  }, [dispatch]);
+
+  // Create session on mount. Guarded with a ref (rather than relying solely on
+  // the empty dependency array) so React 19's StrictMode double-invoke of
+  // effects in development doesn't create two orphaned backend sessions.
+  useEffect(() => {
+    if (sessionInitRef.current) return;
+    sessionInitRef.current = true;
+    void initSession();
+  }, [initSession]);
+
+  // Auto-scroll: set scrollTop directly on the list container instead of using
+  // scrollIntoView, which traverses all ancestors and can trigger layout
+  // recalculations in surrounding flex elements once the list becomes scrollable.
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [state.messages, state.streamingText]);
+
+  // Also used as the "Retry" action if the initial session creation fails.
+  const handleNewSession = () => {
+    void initSession();
   };
 
   const handleSend = async (text: string) => {
@@ -120,9 +122,22 @@ export function ChatPanel({ state, dispatch }: ChatPanelProps) {
         )}
 
         {state.error && (
-          <p className="px-md py-sm text-body-sm rounded-lg bg-red-100 text-red-700">
-            {state.error}
-          </p>
+          <div
+            role="alert"
+            className="px-md py-sm text-body-sm gap-sm flex items-center justify-between rounded-lg bg-red-100 text-red-700"
+          >
+            <p>{state.error}</p>
+            {/* Session creation failed — nothing else works without a session, so offer a retry. */}
+            {!state.sessionId && (
+              <button
+                type="button"
+                onClick={handleNewSession}
+                className="text-label-md shrink-0 rounded-md border border-red-700/40 px-2 py-1 font-semibold whitespace-nowrap text-red-700 hover:bg-red-200"
+              >
+                Retry
+              </button>
+            )}
+          </div>
         )}
       </div>
 
