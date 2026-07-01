@@ -22,7 +22,7 @@ export const Layout = ({ children }: ILayoutProps) => {
   return (
     <div className="bg-app flex h-screen flex-col overflow-hidden">
       <Header toggleTheme={toggleTheme} theme={theme} />
-      <main className="px-lg py-lg gap-lg mx-auto flex min-h-0 w-full max-w-[1024px] flex-1 flex-col">
+      <main className="p-md sm:p-lg gap-md sm:gap-lg mx-auto flex min-h-0 w-full max-w-[1024px] flex-1 flex-col">
         {children}
       </main>
       <Footer />

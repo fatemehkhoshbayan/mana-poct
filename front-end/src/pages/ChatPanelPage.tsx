@@ -16,7 +16,7 @@ export default function ChatPanelPage() {
   const [state, dispatch] = useReducer(chatReducer, initialState);
 
   return (
-    <section className="gap-lg flex min-h-0 w-full flex-1 flex-col">
+    <section className="gap-md sm:gap-lg flex min-h-0 w-full flex-1 flex-col">
       {/* QC Variables — horizontal progress strip; shrink-0 prevents the flex
           algorithm from squishing it as the message list below grows */}
       <div className="shrink-0">
@@ -28,7 +28,7 @@ export default function ChatPanelPage() {
       </div>
 
       {/* Chat panel — frosted glass */}
-      <div className="p-lg flex min-h-0 flex-1 flex-col rounded-2xl bg-white/10 backdrop-blur-md">
+      <div className="p-sm sm:p-lg flex min-h-0 flex-1 flex-col rounded-2xl bg-white/10 backdrop-blur-md">
         <ChatPanel state={state} dispatch={dispatch} />
       </div>
     </section>

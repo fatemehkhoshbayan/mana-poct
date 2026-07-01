@@ -30,21 +30,21 @@ export function ProgressPanel({ extraction, variableStatuses, currentFsm }: Prog
   const rows = getRows({ extraction, lotNumber, deviceSerial });
 
   return (
-    <div className="gap-xs sm:gap-sm flex flex-row">
+    <section className="gap-base sm:gap-xs flex flex-row">
       {rows.map(row => {
         const isActive = currentFsm === row.activeState;
         return (
           <div
             key={row.label}
-            className={`gap-xs p-sm sm:px-md sm:py-sm flex flex-1 flex-col overflow-hidden rounded-lg transition-all sm:rounded-xl ${
+            className={`gap-base p-sm sm:px-md sm:py-sm flex flex-1 flex-col overflow-hidden rounded-lg transition-all sm:rounded-xl ${
               isActive ? 'bg-primary shadow-md' : 'bg-surface backdrop-blur-sm'
             }`}
           >
-            <p className="text-label-sm sm:text-body-sm text-on-surface flex items-center gap-1 truncate align-middle font-semibold">
+            <p className="text-label-sm sm:text-body-sm text-on-surface gap-base flex items-center truncate align-middle font-semibold">
               <span className="truncate">{row.label}</span>
               {isActive && <ArrowRight size={12} className="shrink-0" />}
             </p>
-            <div className="gap-xs flex flex-col items-start sm:flex-row sm:items-center sm:justify-between">
+            <div className="gap-base flex flex-col items-start sm:flex-row sm:items-center sm:justify-between">
               <Chip known={row.known} value={variableStatuses[row.statusKey]} />
               {row.dbHint && (
                 <p className="text-label-xs sm:text-label-sm text-inverse-surface">{row.dbHint}</p>
@@ -53,6 +53,6 @@ export function ProgressPanel({ extraction, variableStatuses, currentFsm }: Prog
           </div>
         );
       })}
-    </div>
+    </section>
   );
 }

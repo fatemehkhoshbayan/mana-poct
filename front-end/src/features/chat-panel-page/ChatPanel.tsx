@@ -96,7 +96,10 @@ export function ChatPanel({ state, dispatch }: ChatPanelProps) {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
       {/* Message list — flex-1 + overflow so it scrolls while Composer stays pinned */}
-      <div ref={listRef} className="space-y-lg pb-lg pr-sm scrollbar-hide min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={listRef}
+        className="gap-xs sm:gap-lg pb-lg pr-sm scrollbar-hide flex min-h-0 flex-1 flex-col overflow-y-auto"
+      >
         {state.messages.map(m => (
           <MessageBubble key={m.id} role={m.role} content={m.content} />
         ))}
@@ -121,7 +124,6 @@ export function ChatPanel({ state, dispatch }: ChatPanelProps) {
             {state.error}
           </p>
         )}
-
       </div>
 
       <div className="shrink-0">

@@ -64,8 +64,8 @@
   /* Spacing */
   --spacing-margin: 24px;
   --spacing-base: 4px;
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
+  --spacing-xs: 8px;
+  --spacing-sm: 10px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-gutter: 16px;
@@ -91,6 +91,10 @@
   --text-headline-sm--line-height: 1.4;
   --text-headline-sm--font-weight: 600;
 
+  --text-headline-xs: 16px;
+  --text-headline-xs--line-height: 1.4;
+  --text-headline-xs--font-weight: 600;
+
   --text-body-lg: 18px;
   --text-body-lg--line-height: 1.6;
   --text-body-lg--font-weight: 400;
@@ -102,6 +106,10 @@
   --text-body-sm: 14px;
   --text-body-sm--line-height: 1.5;
   --text-body-sm--font-weight: 400;
+
+  --text-body-xs: 12px;
+  --text-body-xs--line-height: 1.5;
+  --text-body-xs--font-weight: 400;
 
   --text-label-md: 12px;
   --text-label-md--line-height: 1;

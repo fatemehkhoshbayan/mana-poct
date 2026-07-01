@@ -34,7 +34,7 @@ function IconButton({ className, variant = 'ghost', children, ...rest }: IconBut
     <button
       type="button"
       className={cn(
-        'p-sm flex items-center justify-center rounded-full transition-all active:scale-95',
+        'p-xs flex items-center justify-center rounded-full transition-all active:scale-95',
         variant === 'ghost' && 'text-white hover:bg-white/20',
         variant === 'default' && 'bg-primary text-on-primary-fixed shadow-sm hover:brightness-105',
         className,
