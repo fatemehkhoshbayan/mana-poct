@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Literal
+from typing import Any, Literal
 
 
 @dataclass
@@ -49,20 +49,3 @@ class StreamDone:
 
 
 StreamEvent = "TextDelta | ToolCallDelta | Usage | StreamDone"
-
-
-class LLMProvider:
-    """The only surface the orchestrator sees. Implementations live in app/llm/."""
-
-    name: str
-    model: str
-
-    async def stream(
-        self,
-        *,
-        system: str,
-        messages: list[LlmMessage],
-        tools: list[ToolSpec],
-    ) -> AsyncIterator[TextDelta | ToolCallDelta | Usage | StreamDone]:
-        raise NotImplementedError
-        yield  # make it an async generator
