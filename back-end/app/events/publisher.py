@@ -17,3 +17,11 @@ class EventPublisher:
 
     async def publish(self, event_type: str, payload: dict[str, Any]) -> None:
         raise NotImplementedError
+
+    async def close(self) -> None:
+        """Release any held resources (connections, sockets, etc).
+
+        Default is a no-op — most sinks (log, ntfy) are stateless per-call.
+        Override when a sink holds a long-lived connection (e.g. Kafka).
+        """
+        return None
