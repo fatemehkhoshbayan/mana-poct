@@ -5,16 +5,19 @@
  * Accessibility: `role="status"` + `aria-live="polite"` announces the pending state
  * to screen readers without interrupting the user. `aria-atomic="true"` ensures the
  * full label is read if the element updates.
+ *
+ * The `sm:ml-12` offset aligns the indicator with assistant bubbles under the (avatar +
+ * gap) width, but is dropped on mobile since `MessageBubble`'s avatar is hidden there.
  */
 function TypingIndicator() {
   return (
-    <div className="gap-md ml-12 flex items-start">
+    <div className="gap-md flex items-start sm:ml-12">
       <div
         role="status"
         aria-live="polite"
         aria-atomic="true"
         aria-label="Assistant is typing"
-        className="gap-xs px-sm py-xs flex items-center rounded-full border border-white/30 bg-white/20"
+        className="gap-base px-sm py-xs flex items-center rounded-full border border-white/30 bg-white/20"
       >
         <p className="sr-only">Assistant is typing</p>
         <p

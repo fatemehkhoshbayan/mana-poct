@@ -37,15 +37,19 @@ front-end/
 │   │   └── client.ts         createSession() HTTP call
 │   │
 │   ├── hooks/
-│   │   ├── useChatStream.ts  POST + SSE consumer; dispatches to chatReducer
-│   │   ├── useTheme.ts       Reads ThemeContext; throws outside ThemeProvider
-│   │   └── helper.ts         SSE frame parser (takeCompleteFrames, parseFrame)
+│   │   ├── useChatStream.ts        POST + SSE consumer; dispatches to chatReducer
+│   │   ├── useTheme.ts             Reads ThemeContext; throws outside ThemeProvider
+│   │   ├── useSpeechRecognition.ts Wraps the browser Web Speech API for voice dictation
+│   │   └── helper.ts               SSE frame parser (takeCompleteFrames, parseFrame)
 │   │
 │   ├── state/
 │   │   └── chatReducer.ts    ChatState shape + all action handlers
 │   │
 │   ├── lib/
 │   │   └── cn.ts             clsx + extended twMerge (knows design tokens)
+│   │
+│   ├── types/
+│   │   └── speech-recognition.d.ts  Ambient typings for SpeechRecognition / webkitSpeechRecognition
 │   │
 │   ├── pages/
 │   │   └── ChatPanelPage.tsx  Owns chatReducer; composes ProgressPanel + ChatPanel
@@ -68,7 +72,7 @@ front-end/
 │       ├── Button.tsx          cva variants: primary | outline | link
 │       ├── IconButton.tsx      cva variants: ghost | default (circular)
 │       ├── Chip.tsx            PENDING / PASS / WARN / FAIL status badge
-│       ├── Composer.tsx        Textarea + send IconButton; forwardRef focus handle
+│       ├── Composer.tsx        Textarea + send IconButton + mic (voice input); forwardRef focus handle
 │       ├── MessageBubble.tsx   User (pink) + assistant (white) bubbles with avatars
 │       └── TypingIndicator.tsx Accessible three-dot bounce animation
 │
@@ -211,6 +215,24 @@ stateDiagram-v2
 - Normalises `\r\n` → `\n`
 - Strips only the required single leading space from `data: ` lines (preserves content spaces)
 - Handles `token`, `state`, `decision`, `error`, `done` event types
+
+## Voice input
+
+`Composer` lets the user dictate their answer instead of typing, using the browser's **native Web Speech API** (`SpeechRecognition` / `webkitSpeechRecognition`) via the `useSpeechRecognition` hook. This is entirely client-side — no backend endpoint, no audio upload; the browser's own speech service does the transcription and only text ever reaches the API.
+
+- **Feature detection.** The mic button only renders when `window.SpeechRecognition` (or the `webkit`-prefixed variant) exists. Supported in Chrome, Edge, and Safari; desktop Firefox has no implementation, so those users just see the text input.
+- **Continuous + interim results.** Recognition runs in `continuous` mode with `interimResults` enabled: partial words are shown live in the textarea as the user talks, and are replaced by the settled/final transcript once the browser is confident. Final chunks are permanently appended (with smart spacing) to whatever was already typed.
+- **Lifecycle.** Tapping the mic toggles listening; the mic pulses red while active. Dictation auto-stops on submit and whenever the composer becomes `disabled` (e.g. the assistant is streaming a reply), so it can never keep recording into a locked/streaming session.
+- **Errors.** Permission denial or other recognition errors surface as a small inline message below the composer (`no-speech` / `aborted` are treated as routine, not shown).
+
+```tsx
+const { isSupported, isListening, toggle } = useSpeechRecognition({
+  onResult: (transcript, isFinal) => {
+    /* isFinal === false → interim preview, true → commit */
+  },
+  onError: err => console.warn(err),
+});
+```
 
 ## Layout architecture
 

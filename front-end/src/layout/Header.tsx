@@ -17,7 +17,7 @@ interface IHeaderProps {
 function Header({ toggleTheme, theme }: IHeaderProps) {
   return (
     <header className="py-sm sm:py-lg px-lg sm:px-2xl bg-surface sticky top-0 z-50 flex w-full items-center justify-between border-b border-white/20">
-      <div className="gap-sm flex items-baseline">
+      <div className="gap-xs flex items-baseline">
         <span className="text-on-surface text-headline-md sm:text-headline-lg font-bold">
           Mana POCT
         </span>

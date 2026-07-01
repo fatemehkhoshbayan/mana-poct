@@ -32,19 +32,24 @@ export function DecisionCard({ decision }: DecisionCardProps) {
   const styles = COLOR_STYLES[decision.color] ?? COLOR_STYLES.GREEN;
 
   return (
-    <article className={cn('p-lg rounded-2xl border-2', styles.border, styles.bg)}>
+    <article className={cn('p-md sm:p-lg rounded-2xl border-2', styles.border, styles.bg)}>
       {/* Header */}
       <div className="gap-md flex items-start justify-between">
-        <div className="gap-sm flex items-center">
+        <div className="gap-xs flex items-center">
           <p className={cn('mt-0.5 h-3 w-3 shrink-0 rounded-full', styles.dot)} />
-          <h3 className={cn('text-headline-sm font-bold tracking-wide uppercase', styles.title)}>
+          <h3
+            className={cn(
+              'text-headline-xs sm:text-headline-sm font-bold tracking-wide uppercase',
+              styles.title,
+            )}
+          >
             {decision.scenario_name}
           </h3>
         </div>
         {decision.is_qc_locked && (
           <p
             className={cn(
-              'gap-xs px-sm py-xs text-label-md flex shrink-0 items-center rounded-full font-bold',
+              'gap-base p-sm text-label-xs sm:text-label-md flex shrink-0 items-center rounded-full font-bold',
               styles.lockedBadge,
             )}
           >
@@ -56,22 +61,28 @@ export function DecisionCard({ decision }: DecisionCardProps) {
 
       {/* Resolved action */}
       <div className={cn('mt-md px-md py-sm rounded-lg border bg-white/70', styles.messageBorder)}>
-        <p className="text-body-md leading-relaxed text-slate-700">{decision.resolved_action}</p>
+        <p className="text-body-sm sm:text-body-md leading-relaxed text-slate-700">
+          {decision.resolved_action}
+        </p>
       </div>
 
       {/* Variables grid */}
       {Object.keys(decision.variables).length > 0 && (
-        <div className="mt-md gap-sm grid grid-cols-1 sm:grid-cols-2">
+        <div className="mt-md gap-xs grid grid-cols-1 sm:grid-cols-2">
           {Object.entries(decision.variables).map(([k, v]) => {
             const varStyle = VAR_STATUS_STYLES[v] ?? VAR_STATUS_STYLES.PASS;
             return (
               <div key={k} className="px-md py-sm rounded-lg border border-gray-200 bg-white/70">
-                <p className="text-label-md tracking-wider text-slate-500 uppercase">
+                <p className="text-label-xs sm:text-label-md tracking-wider text-slate-500 uppercase">
                   {k.replace(/_/g, ' ')}
                 </p>
-                <div className="mt-xs gap-xs flex items-center justify-between">
-                  <p className={cn('text-headline-sm font-bold', varStyle.text)}>{v}</p>
-                  <p className={cn('px-xs rounded py-1 text-[10px] font-bold', varStyle.chip)}>
+                <div className="mt-xs gap-base flex items-center justify-between">
+                  <p
+                    className={cn('text-headline-xs sm:text-headline-sm font-bold', varStyle.text)}
+                  >
+                    {v}
+                  </p>
+                  <p className={cn('px-xs py-base rounded text-[10px] font-bold', varStyle.chip)}>
                     {v}
                   </p>
                 </div>
@@ -89,7 +100,10 @@ export function DecisionCard({ decision }: DecisionCardProps) {
           </p>
           <ul className="mt-sm space-y-xs">
             {decision.directives.map(d => (
-              <li key={d} className="gap-sm text-body-sm flex items-start text-slate-700">
+              <li
+                key={d}
+                className="gap-xs text-body-xs sm:text-body-sm flex items-start text-slate-700"
+              >
                 <p className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', styles.dot)} />
                 {d.replace(/_/g, ' ')}
               </li>
