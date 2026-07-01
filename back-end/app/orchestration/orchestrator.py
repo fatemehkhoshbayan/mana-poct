@@ -5,17 +5,29 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, AsyncIterator
+from typing import AsyncIterator
 
 from app.domain.rules_engine import resolve
 from app.llm.base import LLMProvider
 from app.observability.tracer import Tracer
 from app.observability.tracer import tracer as default_tracer
-from app.orchestration.fsm import all_known, can_resolve_early, mark_known, next_objective
+from app.orchestration.fsm import (
+    all_known,
+    can_resolve_early,
+    mark_known,
+    next_objective,
+)
 from app.orchestration.prompts import build_system_prompt
 from app.orchestration.tools import ALL_TOOLS, execute_tool
 from app.schemas.domain import Decision, ExtractionState, FsmState
-from app.schemas.llm import LlmMessage, StreamDone, TextDelta, ToolCall, ToolCallDelta, Usage
+from app.schemas.llm import (
+    LlmMessage,
+    StreamDone,
+    TextDelta,
+    ToolCall,
+    ToolCallDelta,
+    Usage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -247,20 +259,3 @@ class Orchestrator:
                     "output_tokens": total_output_tokens,
                 },
             )
-
-    def updated_messages(
-        self,
-        history: list[LlmMessage],
-        user_message: str,
-        assistant_text: str,
-        tool_calls: list[Any] | None = None,
-    ) -> list[LlmMessage]:
-        """Convenience: build the updated message list after a turn."""
-        msgs = list(history)
-        msgs.append(LlmMessage(role="user", content=user_message))
-        msgs.append(
-            LlmMessage(
-                role="assistant", content=assistant_text, tool_calls=tool_calls or []
-            )
-        )
-        return msgs
