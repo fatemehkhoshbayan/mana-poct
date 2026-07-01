@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette import EventSourceResponse
 
+from app.config import settings
 from app.db.models import Extraction, Message, QcDecision, Session
 from app.db.session import get_session
 from app.domain.variables import (
@@ -55,7 +56,7 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
     description="Creates a conversation session and returns the greeting message.",
 )
 async def create_session(
-    x_tenant_id: str = Header(default="demo", alias="X-Tenant-ID"),
+    x_tenant_id: str = Header(default=settings.DEFAULT_TENANT_ID, alias="X-Tenant-ID"),
     db: AsyncSession = Depends(get_session),
 ) -> CreateSessionResponse:
     session_id = str(uuid.uuid4())
@@ -116,13 +117,16 @@ Streams the assistant's reply as Server-Sent Events.
 async def send_message(
     session_id: str,
     body: SendMessageRequest,
-    x_tenant_id: str = Header(default="demo", alias="X-Tenant-ID"),
+    x_tenant_id: str = Header(default=settings.DEFAULT_TENANT_ID, alias="X-Tenant-ID"),
     db: AsyncSession = Depends(get_session),
 ) -> EventSourceResponse:
     # Load session
     session = await db.get(Session, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    if session.tenant_id != x_tenant_id:
+        raise HTTPException(status_code=403, detail="Session does not belong to this tenant")
 
     if session.status == "resolved":
         raise HTTPException(
@@ -312,11 +316,15 @@ async def send_message(
 )
 async def get_session_detail(
     session_id: str,
+    x_tenant_id: str = Header(default=settings.DEFAULT_TENANT_ID, alias="X-Tenant-ID"),
     db: AsyncSession = Depends(get_session),
 ) -> SessionDetail:
     session = await db.get(Session, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    if session.tenant_id != x_tenant_id:
+        raise HTTPException(status_code=403, detail="Session does not belong to this tenant")
 
     msg_result = await db.execute(
         select(Message)

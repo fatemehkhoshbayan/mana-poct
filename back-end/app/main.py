@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, hello, sessions
+from app.api import health, sessions
 from app.config import settings
 
 logging.basicConfig(
@@ -19,11 +19,21 @@ logger = logging.getLogger(__name__)
 
 
 def _run_migrations() -> None:
-    """Run Alembic migrations synchronously (called in a thread executor)."""
+    """Run Alembic migrations synchronously (called in a thread executor).
+
+    `configure_logger = False` stops `alembic/env.py` from calling `fileConfig()`,
+    which would otherwise overwrite the root logger's level/formatter (set up by
+    `logging.basicConfig` above) for the rest of this long-lived process — since
+    migrations run in-process on every boot, that clobber would silently drop
+    every `logger.info(...)` call app-wide. Standalone CLI usage (`make migrate`,
+    `alembic upgrade head`) is a fresh process each time, so it is unaffected and
+    keeps Alembic's own formatted CLI logging.
+    """
     from alembic import command  # noqa: PLC0415, I001
     from alembic.config import Config as AlembicConfig  # noqa: PLC0415
 
     alembic_cfg = AlembicConfig("alembic.ini")
+    alembic_cfg.attributes["configure_logger"] = False
     command.upgrade(alembic_cfg, "head")
 
 
@@ -50,6 +60,7 @@ async def lifespan(app: FastAPI):
     # Start the outbox relay (Surface I) — drains Hard Block events to whichever
     # EventPublisher sinks are configured (log always; ntfy/Kafka opt-in).
     relay_task = None
+    publisher = None
     try:
         import asyncio  # noqa: PLC0415
 
@@ -57,10 +68,11 @@ async def lifespan(app: FastAPI):
         from app.events.factory import get_publisher  # noqa: PLC0415
         from app.events.outbox import relay_loop  # noqa: PLC0415
 
+        publisher = get_publisher()
         relay_task = asyncio.create_task(
             relay_loop(
                 async_session,
-                get_publisher(),
+                publisher,
                 interval_seconds=settings.EVENT_RELAY_INTERVAL_SECONDS,
             )
         )
@@ -75,6 +87,13 @@ async def lifespan(app: FastAPI):
             await relay_task
         except Exception:
             pass
+
+    # Close event publisher connections (e.g. the Kafka producer) on shutdown
+    if publisher is not None:
+        try:
+            await publisher.close()
+        except Exception:
+            logger.exception("Failed to close event publisher (non-fatal)")
 
     # Flush tracer on shutdown (Surface H)
     try:
@@ -105,7 +124,6 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
-app.include_router(hello.router)
 app.include_router(sessions.router)
 
 if __name__ == "__main__":
