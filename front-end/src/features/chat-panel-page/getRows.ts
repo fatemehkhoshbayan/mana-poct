@@ -1,9 +1,9 @@
 import type { ExtractionState, FsmState } from '@/services';
 
 interface IGetRows {
-  lotNumber: string;
-  extraction: ExtractionState;
-  deviceSerial: string;
+  lotNumber?: string | null;
+  extraction: ExtractionState | null;
+  deviceSerial?: string | null;
 }
 
 /**
