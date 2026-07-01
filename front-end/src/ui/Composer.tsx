@@ -113,6 +113,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         <textarea
           id="composer-textarea"
           name="composer-textarea"
+          aria-label="Message"
           ref={textareaRef}
           value={text}
           onChange={e => {
