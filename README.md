@@ -31,7 +31,7 @@ mana-poct/
 │   └── app/
 │       ├── main.py
 │       ├── config.py
-│       ├── api/              routers: health · sessions · hello
+│       ├── api/              routers: health · sessions
 │       ├── db/               models · session · base
 │       ├── schemas/          domain.py · api.py · llm.py  ← frozen contracts
 │       ├── domain/           variables · rules_engine · scenarios  (slice 1)
@@ -40,7 +40,7 @@ mana-poct/
 │       ├── observability/    Tracer (abstract) · LangfuseTracer · NoopTracer  (slice 4)
 │       ├── events/           EventPublisher · LogPublisher · NtfyPublisher · KafkaPublisher · outbox  (slice 5/6)
 │       ├── mock_db/          fixtures · seed · repository  (slice 2)
-│       └── tests/            pytest suite — rules engine · FSM · mock DB (49 tests)
+│       └── tests/            pytest suite — rules engine · FSM · mock DB (81 tests)
 └── front-end/                React 19 + TypeScript — see front-end/README.md
     └── src/
         ├── context/          ThemeContext · ThemeProvider · helper (light/dark mode)

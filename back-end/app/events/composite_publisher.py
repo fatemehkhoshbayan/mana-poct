@@ -41,3 +41,11 @@ class CompositePublisher(EventPublisher):
                 failures,
             )
             raise failures[0][1]
+
+    async def close(self) -> None:
+        results = await asyncio.gather(
+            *(p.close() for p in self._publishers), return_exceptions=True
+        )
+        for p, r in zip(self._publishers, results):
+            if isinstance(r, Exception):
+                logger.warning("composite close: sink %s failed to close: %s", p.name, r)

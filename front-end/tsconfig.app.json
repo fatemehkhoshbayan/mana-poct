@@ -35,6 +35,6 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "public/background.js"],
+  "include": ["src"],
   "exclude": ["node_modules"]
 }

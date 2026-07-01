@@ -91,7 +91,7 @@ Copy `.env.example` and fill in the values for the slices you are running:
 ```dotenv
 # LLM
 OPENROUTER_API_KEY=sk-or-...
-LLM_MODEL=anthropic/claude-3-5-sonnet          # any tool-calling model on OpenRouter
+LLM_MODEL=google/gemini-3.1-flash-lite         # any tool-calling model on OpenRouter
 
 # Observability (Slice 4+)
 LANGFUSE_PUBLIC_KEY=pk-lf-...
@@ -99,10 +99,10 @@ LANGFUSE_SECRET_KEY=sk-lf-...
 LANGFUSE_HOST=https://cloud.langfuse.com       # or your self-hosted URL
 
 # Database (defaults work with Docker Compose)
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=mana_poct
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/mana_poct
+POSTGRES_USER=poct
+POSTGRES_PASSWORD=poct
+POSTGRES_DB=poct
+DATABASE_URL=postgresql+asyncpg://poct:poct@db:5432/poct
 ```
 
 ---

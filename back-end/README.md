@@ -31,12 +31,11 @@ back-end/
     │
     ├── api/
     │   ├── health.py        GET /api/health
-    │   ├── hello.py         GET /api/hello  (slice 0 smoke test)
     │   └── sessions.py      POST /api/sessions · POST /api/sessions/{id}/messages · GET /api/sessions/{id}
     │
     ├── schemas/             Frozen cross-layer contracts (do not change without updating front-end types)
     │   ├── domain.py        ExtractionState, ConsumableInput, StorageInput, HistoricalInput, EqaInput, Decision
-    │   ├── api.py           CreateSessionRequest/Response, MessageRequest, SessionDetail, SSE event payloads
+    │   ├── api.py           CreateSessionResponse, SendMessageRequest, SessionDetail, SSE event payloads
     │   └── llm.py           LlmMessage, ToolSpec, StreamEvent (internal LLM adapter types)
     │
     ├── domain/              Pure, deterministic business logic — no I/O, no LLM

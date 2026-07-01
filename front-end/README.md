@@ -64,7 +64,6 @@ front-end/
 │   │       ├── ChatPanel.tsx       Message list + Composer + DecisionCard + New QC Check
 │   │       ├── ProgressPanel.tsx   Horizontal 4-pill QC variable strip
 │   │       ├── DecisionCard.tsx    Colour-coded final QC decision card
-│   │       ├── ChatBox.tsx         Standalone SSE test harness (dev only)
 │   │       ├── getRows.ts          Builds VariableRow[] for ProgressPanel
 │   │       └── constants.ts        COLOR_STYLES and VAR_STATUS_STYLES maps
 │   │
@@ -76,8 +75,12 @@ front-end/
 │       ├── MessageBubble.tsx   User (pink) + assistant (white) bubbles with avatars
 │       └── TypingIndicator.tsx Accessible three-dot bounce animation
 │
+│   Each of the folders above (context, services, hooks, state, lib, types, pages,
+│   layout, features, ui) also exports a barrel `index.ts` for clean re-exports.
+│
 ├── eslint.config.js
-├── vite.config.ts             Path alias: @/ → src/
+├── vite.config.ts             Path aliases: @/ → src/, plus @hooks, @features, @services,
+│                               @ui, @state, @pages, @layout, @context, @lib
 └── .prettierrc.json
 ```
 
@@ -264,6 +267,6 @@ div.h-screen.flex-col          ← viewport anchor
 - **DB lookup hints.** When the backend populates `consumable.lot_number` or `historical.device_serial`, `ProgressPanel` shows a small supplementary hint (`Lot: …` / `DB: …`) below the relevant pill.
 - **`useReducer` over external store.** The chat state is self-contained — `chatReducer.ts` keeps all transitions in one auditable place.
 - **One session per QC check.** After a decision, the composer locks and **New QC Check** starts a fresh session (HTTP 409 on reuse).
-- **Path alias `@/`** maps to `src/` — imports stay clean across the nested folder structure.
+- **Path alias `@/`** maps to `src/` (plus per-folder aliases like `@hooks`, `@features`, `@ui`, etc.) — imports stay clean across the nested folder structure.
 - **DecisionCard uses fixed slate text.** The card always has a light-tinted background regardless of app theme, so text colours are hardcoded (`text-slate-700`) rather than using theme tokens to ensure readability in dark mode.
 - **Tailwind v4 CSS-first.** No `tailwind.config.js` — all tokens, dark mode variant, spacing, typography, and gradients are in `index.css`. The `cn` helper extends `tailwind-merge` so custom tokens are conflict-resolved correctly.

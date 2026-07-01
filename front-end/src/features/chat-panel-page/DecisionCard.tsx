@@ -118,12 +118,17 @@ export function DecisionCard({ decision }: DecisionCardProps) {
           variant="link"
           size="sm"
           onClick={() => setExpanded(e => !e)}
+          aria-expanded={expanded}
+          aria-controls="decision-raw-payload"
           className="text-slate-500 hover:text-slate-800"
         >
           {expanded ? 'Hide raw payload' : 'Show raw payload'}
         </Button>
         {expanded && (
-          <pre className="mt-sm p-md max-h-48 overflow-auto rounded-lg bg-white/60 text-[10px] text-slate-600">
+          <pre
+            id="decision-raw-payload"
+            className="mt-sm p-md max-h-48 overflow-auto rounded-lg bg-white/60 text-[10px] text-slate-600"
+          >
             {JSON.stringify(decision, null, 2)}
           </pre>
         )}

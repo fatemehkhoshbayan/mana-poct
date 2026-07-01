@@ -15,7 +15,12 @@ class CreateSessionResponse(BaseModel):
 
 
 class SendMessageRequest(BaseModel):
-    message: str = Field(..., min_length=1, examples=["The reagent lot expired last week."])
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=4000,
+        examples=["The reagent lot expired last week."],
+    )
 
 
 class SessionMessage(BaseModel):
