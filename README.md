@@ -53,10 +53,11 @@ mana-poct/
         │       ├── DecisionCard.tsx   colour-coded final decision card
         │       └── constants.ts       COLOR_STYLES · VAR_STATUS_STYLES maps
         ├── services/         types.ts · client.ts  (mirrors backend contracts)
-        ├── hooks/            useChatStream.ts · useTheme.ts · helper.ts
+        ├── hooks/            useChatStream.ts · useTheme.ts · useSpeechRecognition.ts · helper.ts
         ├── state/            chatReducer.ts  (SESSION_CREATED → STREAM_DONE)
         ├── lib/              cn.ts (clsx + extended tailwind-merge)
-        └── ui/               Button · IconButton · Chip · Composer
+        ├── types/            speech-recognition.d.ts (Web Speech API ambient typings)
+        └── ui/               Button · IconButton · Chip · Composer (text + voice input)
                               MessageBubble · TypingIndicator
 ```
 
@@ -88,7 +89,7 @@ Sending a message to a **resolved** session returns **HTTP 409** — start a new
 
 ## Chat UI
 
-The frontend is a full-viewport, frosted-glass chat interface styled with a linear gradient background (light/dark mode switchable via the header toggle).
+The frontend is a full-viewport, frosted-glass chat interface styled with a linear gradient background (light/dark mode switchable via the header toggle). Users can respond either by **typing** or by **talking** — the Composer's mic button dictates speech to text entirely client-side via the browser's Web Speech API (Chrome/Edge/Safari; no backend involvement, no audio ever leaves the browser).
 
 **Page layout (top → bottom):**
 
